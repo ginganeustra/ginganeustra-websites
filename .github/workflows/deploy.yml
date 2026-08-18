@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+  statuses: write
+
 concurrency:
   group: neocities-publish
   cancel-in-progress: false
@@ -44,3 +48,35 @@ jobs:
             -H "Authorization: Bearer $NEOCITIES_API_KEY" \
             "${upload_args[@]}" \
             https://neocities.org/api/upload
+
+
+      - name: Report Neocities deployment result
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOYMENT_RESULT: ${{ job.status }}
+          STATUS_API_URL: ${{ github.api_url }}/repos/${{ github.repository }}/statuses/${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$DEPLOYMENT_RESULT" == "success" ]]; then
+            state="success"
+            description="Both magazines and article pages published to Neocities"
+          else
+            state="failure"
+            description="Neocities publication failed; inspect the workflow run"
+          fi
+
+          payload="$(jq -nc \
+            --arg state "$state" \
+            --arg description "$description" \
+            --arg url "$RUN_URL" \
+            '{state: $state, context: "neocities/deployment", description: $description, target_url: $url}')"
+
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            --data "$payload" \
+            "$STATUS_API_URL"
