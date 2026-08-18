@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: neocities-publish
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -13,12 +17,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Upload both magazines
+      - name: Upload magazines, permanent articles and sitemaps
         env:
           NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        shell: bash
         run: |
-          curl --fail-with-body \
+          set -euo pipefail
+          upload_args=()
+          while IFS= read -r -d '' file; do
+            upload_args+=(-F "${file}=@${file}")
+          done < <(find Brazil Argentina -type f \
+            \( -name '*.html' -o -name '*.xml' \) -print0 | sort -z)
+
+          for file in sitemap.xml news-sitemap.xml robots.txt; do
+            if [[ -f "$file" ]]; then
+              upload_args+=(-F "${file}=@${file}")
+            fi
+          done
+
+          if (( ${#upload_args[@]} == 0 )); then
+            echo "No publication files found." >&2
+            exit 1
+          fi
+
+          curl --fail-with-body --show-error \
             -H "Authorization: Bearer $NEOCITIES_API_KEY" \
-            -F "Brazil/index.html=@Brazil/index.html" \
-            -F "Argentina/index.html=@Argentina/index.html" \
+            "${upload_args[@]}" \
             https://neocities.org/api/upload

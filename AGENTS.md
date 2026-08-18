@@ -7,7 +7,7 @@ This repository holds two independent English-language football publications for
 - `Brazil/index.html` — BraGinga — live at `https://brazilginga.neocities.org/Brazil/`
 - `Argentina/index.html` — Argentina La Nuestra — live at `https://brazilginga.neocities.org/Argentina/`
 
-Each publication is a single, self-contained HTML file. Never rename either file, change either live path, combine publication state, or introduce build steps unless the owner explicitly asks.
+Each publication keeps its existing `index.html` as its self-contained front page and publishes additional permanent, standalone HTML article pages in the same publication directory. Never rename either index, change either live index path, combine publication state, or introduce build steps. Article pages were explicitly requested so each story can be indexed and shared individually.
 
 ## Update workflow
 
@@ -19,8 +19,10 @@ When asked to update one or both publications:
 4. Update completed matches with scores and concise reports; preview upcoming relevant matches with accurate times.
 5. Remove stale stories and refresh stories that remain live. Add genuinely material new stories; do not add filler.
 6. Keep every existing working link, layout feature and responsive style unless the content requires a change.
-7. Replace the complete relevant `index.html`; do not return fragments or differently named files.
-8. Check the HTML structure and all displayed dates, update times, fixtures, scores and standings before committing.
+7. Replace the complete relevant `index.html`; do not return fragments or rename either publication index.
+8. Give every substantive current story a stable, descriptive, lowercase-hyphenated standalone HTML article page with a unique canonical URL, title, description, publication/update dates, `NewsArticle` JSON-LD, source links and a crawlable link from the relevant index. Preserve existing article URLs and archives unless the owner explicitly requests removal.
+9. Keep `Brazil/sitemap.xml`, `Argentina/sitemap.xml`, the root `sitemap.xml`, `news-sitemap.xml` and `robots.txt` accurate. Keep news sitemap entries limited to articles published within the last two days. The GitHub Actions workflow must upload every publication HTML/XML file and the root discovery files.
+10. Check the HTML structure and all displayed dates, update times, fixtures, scores, standings, internal article links and sitemap URLs before committing.
 
 ## Editorial standards
 
