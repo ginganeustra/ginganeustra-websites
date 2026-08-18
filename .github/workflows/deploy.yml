@@ -1,0 +1,24 @@
+name: Publish to Neocities
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload both magazines
+        env:
+          NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        run: |
+          curl --fail-with-body \
+            -H "Authorization: Bearer $NEOCITIES_API_KEY" \
+            -F "Brazil/index.html=@Brazil/index.html" \
+            -F "Argentina/index.html=@Argentina/index.html" \
+            https://neocities.org/api/upload
