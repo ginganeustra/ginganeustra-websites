@@ -40,9 +40,13 @@ When asked to update one or both publications:
 
 Preserve the BraGinga name and its established Brazilian visual identity. Maintain relevant sections including the lead/hero, What Brazil Is Talking About, scores and match reports, features, Officiating Watch, Market & Manager Watch, Seleção, Brasileirão, continental competitions, Where to Watch and editorial material. Include a meaningful Seleção item and current manager/market coverage when news supports them. Use “futebol” where it fits the publication voice.
 
+Include the complete current Brasileirão standings, embedded and readable at the end of every BraGinga edition. A link or a partial title-race summary does not satisfy this requirement.
+
 ## Argentina La Nuestra commitments
 
 Preserve the Argentina La Nuestra name and established Argentine visual identity. Include the full current league standings at the end of every edition. Preserve the recurring `Spotlight` feature and its existing long-form article until the owner explicitly says to remove or replace it.
+
+For both publications, treat full embedded standings at the end of every edition as a non-optional editorial requirement.
 
 ## Visual design and photography
 
