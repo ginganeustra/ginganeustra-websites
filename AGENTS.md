@@ -16,7 +16,7 @@ When asked to update one or both publications:
 1. Research developments current to the actual date and time before editing.
 2. Use official competition, federation, league and club sources for scores, fixtures, tables, transfers and disciplinary facts. Use reputable independent reporting for context.
 3. Distinguish confirmed, reported, expected, scheduled and speculative information.
-4. Update completed matches with scores and concise reports; preview upcoming relevant matches with accurate times.
+4. Update only completed matches with confirmed final scores and concise reports; preview upcoming relevant matches with accurate times. Never publish scores, match status, commentary or table changes while a game is in progress.
 5. Remove stale stories and refresh stories that remain live. Add genuinely material new stories; do not add filler.
 6. Keep every existing working link, layout feature and responsive style unless the content requires a change.
 7. Replace the complete relevant `index.html`; do not return fragments or rename either publication index.
