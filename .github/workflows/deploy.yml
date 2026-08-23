@@ -30,7 +30,7 @@ jobs:
           upload_args=()
           while IFS= read -r -d '' file; do
             upload_args+=(-F "${file}=@${file}")
-          done < <(find Brazil Argentina -type f \
+          done < <(find Brazil Argentina articles -type f \
             \( -name '*.html' -o -name '*.xml' \) -print0 | sort -z)
 
           for file in sitemap.xml news-sitemap.xml robots.txt; do
