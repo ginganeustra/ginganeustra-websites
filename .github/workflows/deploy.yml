@@ -30,7 +30,7 @@ jobs:
           upload_args=()
           while IFS= read -r -d '' file; do
             upload_args+=(-F "${file}=@${file}")
-          done < <(find Brazil Argentina articles -type f \
+          done < <(find Brazil Argentina Canada articles -type f \
             \( -name '*.html' -o -name '*.xml' \) -print0 | sort -z)
 
           for file in sitemap.xml news-sitemap.xml robots.txt; do
@@ -49,7 +49,6 @@ jobs:
             "${upload_args[@]}" \
             https://neocities.org/api/upload
 
-
       - name: Report Neocities deployment result
         if: always()
         env:
@@ -62,7 +61,7 @@ jobs:
           set -euo pipefail
           if [[ "$DEPLOYMENT_RESULT" == "success" ]]; then
             state="success"
-            description="Both magazines and article pages published to Neocities"
+            description="Magazines and article pages published to Neocities"
           else
             state="failure"
             description="Neocities publication failed; inspect the workflow run"
