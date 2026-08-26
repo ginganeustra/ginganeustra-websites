@@ -3,3 +3,4 @@ Allow: /
 
 Sitemap: https://brazilginga.neocities.org/sitemap.xml
 Sitemap: https://brazilginga.neocities.org/news-sitemap.xml
+Sitemap: https://brazilginga.neocities.org/Canada/sitemap.xml
