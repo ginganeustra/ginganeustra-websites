@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Upload magazines, permanent articles, verification files and sitemaps
+      - name: Upload publication pages, images, verification files and sitemaps
         env:
           NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
         shell: bash
@@ -31,7 +31,7 @@ jobs:
           while IFS= read -r -d '' file; do
             upload_args+=(-F "${file}=@${file}")
           done < <(find Brazil Argentina Canada articles -type f \
-            \( -name '*.html' -o -name '*.xml' \) -print0 | sort -z)
+            \( -name '*.html' -o -name '*.xml' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.webp' -o -name '*.gif' -o -name '*.svg' \) -print0 | sort -z)
 
           for file in sitemap.xml news-sitemap.xml robots.txt google*.html; do
             if [[ -f "$file" ]]; then
