@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Upload magazines, permanent articles and sitemaps
+      - name: Upload magazines, permanent articles, verification files and sitemaps
         env:
           NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
         shell: bash
@@ -33,7 +33,7 @@ jobs:
           done < <(find Brazil Argentina Canada articles -type f \
             \( -name '*.html' -o -name '*.xml' \) -print0 | sort -z)
 
-          for file in sitemap.xml news-sitemap.xml robots.txt; do
+          for file in sitemap.xml news-sitemap.xml robots.txt google*.html; do
             if [[ -f "$file" ]]; then
               upload_args+=(-F "${file}=@${file}")
             fi
@@ -61,7 +61,7 @@ jobs:
           set -euo pipefail
           if [[ "$DEPLOYMENT_RESULT" == "success" ]]; then
             state="success"
-            description="Magazines and article pages published to Neocities"
+            description="Magazines, verification files and article pages published to Neocities"
           else
             state="failure"
             description="Neocities publication failed; inspect the workflow run"
