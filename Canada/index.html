@@ -45,12 +45,20 @@
         max-width: 1100px;
         margin: auto;
       }
+      .mast-grid {
+        display: grid;
+        grid-template-columns: minmax(130px, 1fr) minmax(300px, 2.4fr) minmax(
+            130px,
+            1fr
+          );
+        align-items: center;
+        gap: 18px;
+      }
       .mast-logo {
         width: 100%;
         height: clamp(138px, 24.5vw, 224px);
         object-fit: contain;
         display: block;
-        margin-bottom: 12px;
         border: 3px solid var(--red);
         background: #f7f0e5;
       }
@@ -67,18 +75,19 @@
         margin: 10px 0 16px;
         font-size: 18px;
       }
-      nav {
-        border-top: 1px solid #d5cfc2;
-        border-bottom: 1px solid #d5cfc2;
-        padding: 12px max(18px, calc((100vw - 1100px) / 2));
-        font: 800 12px Arial;
+      .mast-nav {
+        font: 800 12px/1.25 Arial;
         text-transform: uppercase;
         letter-spacing: 0.06em;
       }
-      nav a {
+      .mast-nav a {
+        display: block;
         color: var(--deep);
         text-decoration: none;
-        margin-right: 20px;
+        padding: 8px 0;
+      }
+      .mast-nav.right {
+        text-align: right;
       }
       .meta {
         margin: 18px 0 0;
@@ -151,31 +160,50 @@
         font: 12px Arial;
         margin-top: 45px;
       }
+      @media (max-width: 650px) {
+        .mast-grid {
+          grid-template-columns: 1fr 1.6fr 1fr;
+          gap: 9px;
+        }
+        .mast-nav {
+          font-size: 10px;
+        }
+        .mast-nav a {
+          padding: 5px 0;
+        }
+        .mast-logo {
+          height: 120px;
+        }
+      }
     </style>
   </head>
   <body>
-    <div class="top">
-      CANADA AT WAR · ROLLING EDITION · AUGUST 27, 2026 · MIDNIGHT ET
-    </div>
+    <div class="top">UPDATED · AUGUST 27, 2026 · 1:50 A.M. ET</div>
     <header class="mast">
       <div class="mast-brand">
-        <img
-          class="mast-logo"
-          src="assets/canada-at-war-goose-eagle.jpg"
-          alt="Canada at War masthead"
-        /><a class="word" href="./">CANADA <b>AT WAR</b></a>
         <p class="tagline">
-          Independent, human-editor-directed reporting and analysis on Canadian
-          sovereignty, trade and foreign-policy pressures.
+          Independent, human-directed reporting and analysis.
         </p>
+        <div class="mast-grid">
+          <nav class="mast-nav" aria-label="Publication navigation">
+            <a href="./">Latest</a
+            ><a href="#sovereignty-watch">Sovereignty<br />Watch</a
+            ><a href="#analysis">Analysis</a>
+          </nav>
+          <a href="./"
+            ><img
+              class="mast-logo"
+              src="assets/canada-at-war-goose-eagle.jpg"
+              alt="Canada at War masthead"
+          /></a>
+          <nav class="mast-nav right">
+            <a href="about.html">About &amp;<br />methodology</a
+            ><a href="about.html#corrections">Corrections &amp;<br />contact</a>
+          </nav>
+        </div>
+        <a class="word" href="./">CANADA <b>AT WAR</b></a>
       </div>
     </header>
-    <nav aria-label="Primary navigation">
-      <a href="./">Latest</a><a href="#sovereignty-watch">Sovereignty Watch</a
-      ><a href="#analysis">Analysis</a
-      ><a href="about.html">About &amp; methodology</a
-      ><a href="about.html#corrections">Corrections &amp; contact</a>
-    </nav>
     <section class="hero">
       <div class="heroIn">
         <div class="k">Analysis · Europe</div>
