@@ -27,27 +27,39 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          upload_args=()
-          while IFS= read -r -d '' file; do
-            upload_args+=(-F "${file}=@${file}")
-          done < <(find Brazil Argentina Canada articles -type f \
-            \( -name '*.html' -o -name '*.xml' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.webp' -o -name '*.gif' -o -name '*.svg' \) -print0 | sort -z)
+          if [[ -z "${NEOCITIES_API_KEY:-}" ]]; then
+            echo "NEOCITIES_API_KEY is not configured." >&2
+            exit 1
+          fi
 
+          mapfile -d '' files < <(
+            find Brazil Argentina Canada -type f \
+              \( -name '*.html' -o -name '*.xml' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.webp' -o -name '*.gif' -o -name '*.svg' \) \
+              -print0 | sort -z
+          )
           for file in sitemap.xml news-sitemap.xml robots.txt google*.html; do
-            if [[ -f "$file" ]]; then
-              upload_args+=(-F "${file}=@${file}")
-            fi
+            [[ -f "$file" ]] && files+=("$file")
           done
 
-          if (( ${#upload_args[@]} == 0 )); then
+          if (( ${#files[@]} == 0 )); then
             echo "No publication files found." >&2
             exit 1
           fi
 
-          curl --fail-with-body --show-error \
-            -H "Authorization: Bearer $NEOCITIES_API_KEY" \
-            "${upload_args[@]}" \
-            https://neocities.org/api/upload
+          # Upload each file independently, so a transient failure cannot
+          # leave a newly linked article absent from the published site.
+          failed=0
+          for file in "${files[@]}"; do
+            echo "Uploading $file"
+            if ! curl --fail-with-body --show-error --retry 3 --retry-all-errors \
+              -H "Authorization: Bearer $NEOCITIES_API_KEY" \
+              -F "${file}=@${file}" \
+              https://neocities.org/api/upload; then
+              echo "Failed to upload $file" >&2
+              failed=1
+            fi
+          done
+          (( failed == 0 ))
 
       - name: Report Neocities deployment result
         if: always()
