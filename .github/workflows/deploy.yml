@@ -104,7 +104,7 @@ jobs:
           done
           (( failed == 0 ))
 
-      - name: Verify Canada at War library pages
+      - name: Verify Canada at War pages
         shell: bash
         run: |
           set -euo pipefail
@@ -136,6 +136,9 @@ jobs:
             rm -f "$tmp"
           }
 
+          check_page 'https://brazilginga.neocities.org/Canada/' 'Trump tells Canadian companies: move to the United States'
+          check_page 'https://brazilginga.neocities.org/Canada/trump-canadian-companies-move-us-august-30-2026.html' 'The significance:'
+          check_page 'https://brazilginga.neocities.org/Canada/abacus-liberals-ten-point-lead-trump-august-30-2026.html' 'The headline numbers:'
           check_page 'https://brazilginga.neocities.org/Canada/' 'socrates-how-lying-works.html'
           check_page 'https://brazilginga.neocities.org/Canada/how-lying-works-library.html' 'No article in this library requires a ChatGPT account'
           check_page 'https://brazilginga.neocities.org/Canada/socrates-how-lying-works.html' 'The flattery of the soul'
