@@ -104,6 +104,52 @@ jobs:
           done
           (( failed == 0 ))
 
+      - name: Verify Canada at War library pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA::8}"
+          check_page() {
+            local url="$1"
+            local marker="$2"
+            local tmp
+            local code
+            local ok=0
+            tmp="$(mktemp)"
+            for attempt in 1 2 3 4 5; do
+              code="$(curl -L -sS -o "$tmp" -w '%{http_code}' \
+                "${url}?v=${short}&verify=${attempt}" || true)"
+              if [[ "$code" == "200" ]] && grep -Fq "$marker" "$tmp"; then
+                echo "Verified HTTP 200: $url :: $marker"
+                ok=1
+                break
+              fi
+              echo "Verification attempt $attempt failed for $url (HTTP $code)" >&2
+              sleep 2
+            done
+            if (( ok == 0 )); then
+              echo "Neocities verification failed for $url; expected marker: $marker" >&2
+              head -c 800 "$tmp" >&2 || true
+              rm -f "$tmp"
+              exit 1
+            fi
+            rm -f "$tmp"
+          }
+
+          check_page 'https://brazilginga.neocities.org/Canada/' 'socrates-how-lying-works.html'
+          check_page 'https://brazilginga.neocities.org/Canada/how-lying-works-library.html' 'No article in this library requires a ChatGPT account'
+          check_page 'https://brazilginga.neocities.org/Canada/socrates-how-lying-works.html' 'The flattery of the soul'
+          check_page 'https://brazilginga.neocities.org/Canada/plato-how-lying-works.html' 'The shadow on the wall'
+          check_page 'https://brazilginga.neocities.org/Canada/aristotle-how-lying-works.html' 'How lies become habit'
+          check_page 'https://brazilginga.neocities.org/Canada/confucius-how-lying-works.html' 'The crisis of names'
+          check_page 'https://brazilginga.neocities.org/Canada/laozi-how-lying-works.html' 'The manufacture of desire'
+          check_page 'https://brazilginga.neocities.org/Canada/han-fei-how-lying-works.html' 'The cold machinery'
+          check_page 'https://brazilginga.neocities.org/Canada/condorcet-how-lying-works.html' 'Reason against the mob'
+          check_page 'https://brazilginga.neocities.org/Canada/donald-trump-buddha-how-lying-works.html' 'Donald Trump and the Buddha'
+          check_page 'https://brazilginga.neocities.org/Canada/emotional-transference-nazi-propaganda-how-lying-works.html' 'Emotional transference'
+          check_page 'https://brazilginga.neocities.org/Canada/hannah-arendt-origins-totalitarianism-summary.html' 'The Origins of Totalitarianism'
+          check_page 'https://brazilginga.neocities.org/Canada/hannah-arendt-eichmann-jerusalem-summary.html' 'Eichmann in Jerusalem'
+
       - name: Report Neocities deployment result
         if: always()
         env:
