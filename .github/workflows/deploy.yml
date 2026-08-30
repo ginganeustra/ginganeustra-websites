@@ -33,12 +33,33 @@ jobs:
             'tradingview-widget-container'
             'canada-at-war-goose-eagle-v3.jpg'
             'petition-paint-mix'
+            'Must Read Library'
+            'Emotional transference: How the Nazis made fear point at the wrong target'
+            '.word{order:2;'
           )
           for marker in "${required[@]}"; do
             if ! grep -Fq "$marker" Canada/index.html; then
               echo "Canada at War masthead guard failed: missing $marker" >&2
               exit 1
             fi
+          done
+
+          # The Lake Ontario article must not allow a supplied image to overflow
+          # the mobile article column.
+          if ! grep -Fq 'figure img{display:block;max-width:100%;height:auto}' \
+            Canada/google-maps-lake-ontario-lake-america-august-30-2026.html; then
+            echo 'Canada article image guard failed: responsive image rule missing' >&2
+            exit 1
+          fi
+
+          # The football editions must retain their complete magazine mastheads.
+          for edition in Brazil Argentina; do
+            for marker in 'publication-masthead' 'section-nav' 'wordmark-title'; do
+              if ! grep -Fq "$marker" "$edition/index.html"; then
+                echo "$edition masthead guard failed: missing $marker" >&2
+                exit 1
+              fi
+            done
           done
 
       - name: Upload publication pages, images, verification files and sitemaps
