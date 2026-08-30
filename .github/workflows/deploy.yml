@@ -21,6 +21,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Canada at War has a deliberately fixed front-page shell. Story
+      # publishing must update its content, never replace this masthead.
+      - name: Guard Canada at War masthead and ticker shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            'CANADA_AT_WAR_MASTHEAD_LOCK'
+            'THE TICK'
+            'tradingview-widget-container'
+            'canada-at-war-goose-eagle-v3.jpg'
+            'petition-paint-mix'
+          )
+          for marker in "${required[@]}"; do
+            if ! grep -Fq "$marker" Canada/index.html; then
+              echo "Canada at War masthead guard failed: missing $marker" >&2
+              exit 1
+            fi
+          done
+
       - name: Upload publication pages, images, verification files and sitemaps
         env:
           NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
