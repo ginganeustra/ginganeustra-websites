@@ -35,7 +35,8 @@ jobs:
             'petition-paint-mix'
             'Must Read Library'
             'How Lying Works'
-            'Emotional transference: How the Nazis made fear point at the wrong target'
+            'HOW_LYING_WORKS_LIBRARY_LOCK'
+            'Click a book spine to open its essay.'
             '.word{order:2;'
           )
           for marker in "${required[@]}"; do
