@@ -1,0 +1,230 @@
+name: Publish to Neocities
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+concurrency:
+  group: neocities-publish
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (!contains(github.event.head_commit.message, 'Hourly trade-war THE TICK refresh') && !contains(github.event.head_commit.message, 'Hourly THE TICK refresh'))
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Refresh Hoekstra petition count and repair moving ad portrait
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import urllib.request
+
+          petition_url = 'https://www.ourcommons.ca/petitions/en/Petition/Details?Petition=e-7531'
+          req = urllib.request.Request(petition_url, headers={'User-Agent': 'CanadaAtWar/1.0'})
+          with urllib.request.urlopen(req, timeout=30) as response:
+              petition_html = response.read().decode('utf-8', 'replace')
+
+          match = re.search(r'([0-9][0-9,]*)\s+signatures', petition_html, re.I)
+          if not match:
+              raise SystemExit('Could not read current e-7531 signature count from House of Commons')
+          count = int(match.group(1).replace(',', ''))
+          if count < 500:
+              raise SystemExit(f'Implausible e-7531 signature count: {count}')
+          formatted = f'{count:,}'
+          print(f'House of Commons e-7531 validated signatures: {formatted}')
+
+          path = Path('Canada/index.html')
+          text = path.read_text(encoding='utf-8')
+          text, n1 = re.subn(r'\b[0-9]{1,3}(?:,[0-9]{3})+ validated signatures\b', f'{formatted} validated signatures', text)
+          text, n2 = re.subn(r'Pete Hoekstra petition: [0-9]{1,3}(?:,[0-9]{3})+ validated signatures\.', f'Pete Hoekstra petition: {formatted} validated signatures.', text)
+          if n1 == 0 and n2 == 0:
+              raise SystemExit('Could not locate Hoekstra signature count in Canada/index.html')
+
+          old_script = """<script>(function(){var c=document.getElementById('petition-paint-mix'),f=document.querySelector('.petition-flash');if(!c||!f)return;var x=c.getContext('2d'),a=new Image(),b=new Image(),ready=0,start=0;function draw(img){x.clearRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height)}function loaded(){if(++ready!==2)return;draw(a);f.classList.add('is-ready');start=performance.now();requestAnimationFrame(frame);setTimeout(function(){if(f)f.remove()},7500)}function frame(t){var p=Math.max(0,Math.min(1,(t-start-900)/4300));x.globalAlpha=1;draw(a);x.globalAlpha=p;x.drawImage(b,0,0,c.width,c.height);x.globalAlpha=1;if(p<1)requestAnimationFrame(frame)}a.onload=loaded;b.onload=loaded;a.src='assets/pete-hoekstra-official-portrait.jpg';b.src='assets/statue-of-liberty-petition-watch.jpg';})();</script>"""
+          new_script = """<script>(function(){var c=document.getElementById('petition-paint-mix'),f=document.querySelector('.petition-flash');if(!c||!f)return;var x=c.getContext('2d'),a=new Image(),b=new Image(),ready=0,start=0;function paint(img,cropPortrait,clear){var sw=img.naturalWidth||img.width,sh=img.naturalHeight||img.height;if(cropPortrait)sh=Math.max(1,Math.floor(sh*.68));var scale=Math.max(c.width/sw,c.height/sh),srcW=c.width/scale,srcH=c.height/scale,sx=Math.max(0,(sw-srcW)/2),sy=Math.max(0,(sh-srcH)*.18);if(clear)x.clearRect(0,0,c.width,c.height);x.drawImage(img,sx,sy,srcW,srcH,0,0,c.width,c.height)}function loaded(){if(++ready!==2)return;paint(a,true,true);f.classList.add('is-ready');start=performance.now();requestAnimationFrame(frame);setTimeout(function(){if(f)f.remove()},7500)}function frame(t){var p=Math.max(0,Math.min(1,(t-start-900)/4300));x.globalAlpha=1;paint(a,true,true);x.globalAlpha=p;paint(b,false,false);x.globalAlpha=1;if(p<1)requestAnimationFrame(frame)}a.onload=loaded;b.onload=loaded;a.src='assets/pete-hoekstra-official-portrait.jpg';b.src='assets/statue-of-liberty-petition-watch.jpg';})();</script>"""
+          if old_script not in text:
+              raise SystemExit('Hoekstra moving-ad script has changed; refusing to deploy without applying portrait fix')
+          text = text.replace(old_script, new_script, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Guard Canada at War masthead and ticker shell
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=(
+            'CANADA_AT_WAR_MASTHEAD_LOCK'
+            'PINNED_LEAD_LOCK'
+            'THE TICK'
+            'tradingview-widget-container'
+            'canada-at-war-goose-eagle-v3.jpg'
+            'petition-paint-mix'
+            'Must Read Library'
+            'How Lying Works'
+            'id="must-read-library"'
+            'Click a book spine to open its essay.'
+            'Must Reads from Other Sources'
+            'BESSENT ESCALATES — THEN SITS DOWN WITH CANADA'
+            '.word{order:2;'
+          )
+          for marker in "${required[@]}"; do
+            if ! grep -Fq "$marker" Canada/index.html; then
+              echo "Canada at War masthead/ticker guard failed: missing $marker" >&2
+              exit 1
+            fi
+          done
+
+          if ! grep -Fq 'figure img{display:block;max-width:100%;height:auto}' Canada/google-maps-lake-ontario-lake-america-august-30-2026.html; then exit 1; fi
+          if ! grep -Fq 'lake-maps-headshot-august-30-2026.jpg' Canada/google-maps-lake-ontario-lake-america-august-30-2026.html; then exit 1; fi
+          if ! grep -Fq 'trump-headshot-v3-august-30-2026.jpg' Canada/trump-canadian-companies-move-us-august-30-2026.html; then exit 1; fi
+          for edition in Brazil Argentina; do
+            for marker in 'publication-masthead' 'section-nav' 'wordmark-title'; do
+              grep -Fq "$marker" "$edition/index.html" || exit 1
+            done
+          done
+
+      - name: Strip embedded metadata from publication images
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/strip_publication_image_metadata.py
+
+      - name: Remove broken Empire in Your Pocket placeholder
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          article = Path('Canada/digital-sovereignty-american-tech-hegemony-canada-august-30-2026.html')
+          text = article.read_text(encoding='utf-8')
+          broken = '<figure><img src="assets/digital-sovereignty-monument.svg" alt="Editorial illustration of monumental American statesmen looking exhausted and dispirited"><figcaption>Editorial illustration supplied to Canada at War.</figcaption></figure>'
+          text = text.replace(broken, '')
+          text = text.replace('grid-template-columns:1fr .7fr', 'grid-template-columns:1fr')
+          text = text.replace('https://brazilginga.neocities.org/Canada/assets/digital-sovereignty-monument.svg', 'https://brazilginga.neocities.org/Canada/assets/google-maps-lake-america-august-30-2026.jpeg')
+          article.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Upload publication pages, images, verification files and sitemaps
+        env:
+          NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]] || exit 1
+          mapfile -d '' files < <(find Brazil Argentina Canada -type f \( -name '*.html' -o -name '*.xml' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.webp' -o -name '*.gif' -o -name '*.svg' \) -print0 | sort -z)
+          for file in sitemap.xml news-sitemap.xml robots.txt google*.html; do [[ -f "$file" ]] && files+=("$file"); done
+          failed=0
+          for file in "${files[@]}"; do
+            echo "Uploading $file"
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F "${file}=@${file}" https://neocities.org/api/upload || failed=1
+          done
+          (( failed == 0 ))
+
+      - name: Validate and upload five-item THE TICK before verification
+        env:
+          NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]] || exit 1
+          python3 scripts/normalize_canada_ticker_speed.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text = Path('Canada/index.html').read_text(encoding='utf-8')
+          m = re.search(r'<!-- HOURLY_TICK_AUTO_BEGIN -->(.*?)<!-- HOURLY_TICK_AUTO_END -->', text, re.S)
+          if not m:
+              raise SystemExit('No protected hourly ticker block after full rebuild')
+          labels = re.findall(r'<a\b[^>]*>(.*?)</a>', m.group(1), re.S)
+          if len(labels) != 10:
+              raise SystemExit(f'Five-item ticker rebuild produced {len(labels)} anchors; expected 10 including the animation duplicate')
+          if 'Government of Canada' not in m.group(1):
+              raise SystemExit('Federal government announcements missing from full ticker rebuild')
+          if 'id="ticker-speed-controller"' not in text or 'var pxPerSecond=125' not in text:
+              raise SystemExit('Constant-speed controller missing after full ticker rebuild')
+          PY
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors \
+            -H "Authorization: Bearer $NEOCITIES_API_KEY" \
+            -F 'Canada/index.html=@Canada/index.html' \
+            https://neocities.org/api/upload
+
+      - name: Verify publication pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA::8}"
+          check_page() {
+            local url="$1" marker="$2" tmp code ok=0
+            tmp="$(mktemp)"
+            for attempt in 1 2 3 4 5; do
+              code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "${url}?v=${short}&verify=${attempt}" || true)"
+              if [[ "$code" == "200" ]] && grep -Fq "$marker" "$tmp"; then echo "Verified HTTP 200: $url :: $marker"; ok=1; break; fi
+              sleep 2
+            done
+            rm -f "$tmp"
+            (( ok == 1 )) || exit 1
+          }
+          petition_count="$(python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text=Path('Canada/index.html').read_text(encoding='utf-8')
+          m=re.search(r'\b([0-9]{1,3}(?:,[0-9]{3})+) validated signatures\b',text)
+          if not m: raise SystemExit(1)
+          print(m.group(1))
+          PY
+          )"
+          check_page 'https://brazilginga.neocities.org/Argentina/' 'Messi closes the door: his Argentina career is over'
+          check_page 'https://brazilginga.neocities.org/Argentina/lionel-messi-retires-argentina-international-football-august-31-2026.html' 'The No. 10 shirt will be worn again. The era attached to it is finished.'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'BESSENT ESCALATES — THEN SITS DOWN WITH CANADA'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'Canada may not have been negotiating with one Washington.'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'The 5 per cent problem is a small-business crisis.'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'The boycott is becoming a habit.'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'ticker-speed-controller'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'var pxPerSecond=125'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'Must Reads from Other Sources'
+          check_page 'https://brazilginga.neocities.org/Canada/bessent-champagne-first-contact-trade-collapse-august-31-2026.html' 'Bessent and Champagne reopen the door.'
+          check_page 'https://brazilginga.neocities.org/Canada/trump-trade-team-divisions-greer-lutnick-navarro-canada-august-31-2026.html' 'Canada may not have been negotiating with one Washington.'
+          check_page 'https://brazilginga.neocities.org/Canada/canadian-small-businesses-50-percent-us-tariffs-august-31-2026.html' 'The 5 per cent problem is a small-business crisis.'
+          check_page 'https://brazilginga.neocities.org/Canada/buy-canadian-boycott-hardens-august-31-2026.html' 'The boycott is becoming a habit.'
+          check_page 'https://brazilginga.neocities.org/Canada/must-reads-from-other-sources.html' 'Canada’s Trade War Is a Fight for the Free World'
+          check_page 'https://brazilginga.neocities.org/Canada/must-reads-from-other-sources.html' 'who’s calling the shots in Trump’s trade team?'
+          check_page 'https://brazilginga.neocities.org/Canada/must-reads-from-other-sources.html' 'Canadian Small Businesses to Bear Brunt of New U.S. Tariffs'
+          check_page 'https://brazilginga.neocities.org/Canada/trump-pressures-apple-lake-ontario-lake-america-august-31-2026.html' 'The line that matters:'
+          check_page 'https://brazilginga.neocities.org/Canada/anita-anand-eu-gymnich-carney-europe-august-31-2026.html' 'Why this is new:'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'Washington wants the world to put up more walls against China'
+          check_page 'https://brazilginga.neocities.org/Canada/bessent-g20-china-trade-barriers-canada-august-31-2026.html' 'The rest of the world is going to have to examine their terms of trade with China'
+          check_page 'https://brazilginga.neocities.org/Canada/' "${petition_count} validated signatures"
+          check_page 'https://brazilginga.neocities.org/Canada/' 'Math.floor(sh*.68)'
+          check_page 'https://brazilginga.neocities.org/Canada/digital-sovereignty-american-tech-hegemony-canada-august-30-2026.html' 'The dependency does the work.'
+          check_page 'https://brazilginga.neocities.org/Canada/canada-us-1989-shared-geographic-names-agreement-lake-ontario-august-30-2026.html' 'There is a rulebook for this.'
+          check_page 'https://brazilginga.neocities.org/Canada/google-maps-lake-ontario-lake-america-august-30-2026.html' 'MapQuest proves there was a choice'
+          check_page 'https://brazilginga.neocities.org/Canada/trump-canadian-companies-move-us-august-30-2026.html' 'trump-headshot-v3-august-30-2026.jpg'
+          check_page 'https://brazilginga.neocities.org/Canada/abacus-liberals-ten-point-lead-trump-august-30-2026.html' 'The headline numbers:'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'socrates-how-lying-works.html'
+          check_page 'https://brazilginga.neocities.org/Canada/how-lying-works-library.html' 'Every article below is part of Canada at War'
+
+      - name: Report Neocities deployment result
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOYMENT_RESULT: ${{ job.status }}
+          STATUS_API_URL: ${{ github.api_url }}/repos/${{ github.repository }}/statuses/${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$DEPLOYMENT_RESULT" == "success" ]]; then state="success"; description="Magazines, verification files and article pages published to Neocities"; else state="failure"; description="Neocities publication failed; inspect the workflow run"; fi
+          payload="$(jq -nc --arg state "$state" --arg description "$description" --arg url "$RUN_URL" '{state: $state, context: "neocities/deployment", description: $description, target_url: $url}')"
+          curl --fail-with-body --silent --show-error -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" --data "$payload" "$STATUS_API_URL"
