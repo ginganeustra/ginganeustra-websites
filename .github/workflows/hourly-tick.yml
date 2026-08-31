@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/update_canada_trade_tick.py
+          python3 scripts/update_canada_tick.py
 
       - name: Commit the checked ticker to main
         shell: bash
@@ -43,7 +43,7 @@ jobs:
           git config user.name 'canada-at-war-ticker[bot]'
           git config user.email 'canada-at-war-ticker[bot]@users.noreply.github.com'
           git add Canada/index.html
-          git commit -m 'Hourly trade-war THE TICK refresh [skip ci]'
+          git commit -m 'Hourly Canada-at-War THE TICK refresh [skip ci]'
           # Other publication work can land while this hourly job is fetching feeds.
           # Rebase the one-file ticker commit instead of failing on a non-fast-forward.
           git fetch origin main
@@ -72,7 +72,7 @@ jobs:
             code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "https://brazilginga.neocities.org/Canada/?tick_run=${GITHUB_RUN_ID}&attempt=${attempt}" || true)"
             if [[ "$code" == '200' ]] \
               && grep -Fq 'HOURLY_TICK_AUTO_BEGIN' "$tmp" \
-              && grep -Fq 'THE TICK · CHECKED' "$tmp" \
+              && grep -Fq '<span class="tick-label">THE TICK</span>' "$tmp" \
               && grep -Fq 'tradingview-widget-container' "$tmp"; then
               ok=1
               break
