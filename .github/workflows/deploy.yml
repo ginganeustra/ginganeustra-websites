@@ -12,10 +12,11 @@ permissions:
 
 concurrency:
   group: neocities-publish
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
+    if: github.event_name == 'workflow_dispatch' || (!contains(github.event.head_commit.message, 'Hourly trade-war THE TICK refresh') && !contains(github.event.head_commit.message, 'Hourly THE TICK refresh'))
     runs-on: ubuntu-latest
 
     steps:
