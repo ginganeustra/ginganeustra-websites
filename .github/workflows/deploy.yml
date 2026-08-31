@@ -21,8 +21,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Canada at War has a deliberately fixed front-page shell. Story
-      # publishing must update its content, never replace this masthead.
       - name: Guard Canada at War masthead and ticker shell
         shell: bash
         run: |
@@ -46,29 +44,24 @@ jobs:
             fi
           done
 
-          # The Lake Ontario article must not allow a supplied image to overflow
-          # the mobile article column.
           if ! grep -Fq 'figure img{display:block;max-width:100%;height:auto}' \
             Canada/google-maps-lake-ontario-lake-america-august-30-2026.html; then
             echo 'Canada article image guard failed: responsive image rule missing' >&2
             exit 1
           fi
 
-          # The Trump lead must retain its supplied supporting image.
+          if ! grep -Fq 'lake-maps-headshot-august-30-2026.jpg' \
+            Canada/google-maps-lake-ontario-lake-america-august-30-2026.html; then
+            echo 'Map analysis image guard failed: supplied headshot reference missing' >&2
+            exit 1
+          fi
+
           if ! grep -Fq 'trump-headshot-v3-august-30-2026.jpg' \
             Canada/trump-canadian-companies-move-us-august-30-2026.html; then
             echo 'Trump article image guard failed: supplied headshot reference missing' >&2
             exit 1
           fi
 
-          # The new mapping analysis must retain the supplied headshot.
-          if ! grep -Fq 'lake-maps-headshot-august-30-2026.jpg' \
-            Canada/google-mapquest-who-owns-the-map-august-30-2026.html; then
-            echo 'Map analysis image guard failed: supplied headshot reference missing' >&2
-            exit 1
-          fi
-
-          # The football editions must retain their complete magazine mastheads.
           for edition in Brazil Argentina; do
             for marker in 'publication-masthead' 'section-nav' 'wordmark-title'; do
               if ! grep -Fq "$marker" "$edition/index.html"; then
@@ -176,10 +169,10 @@ jobs:
             fi
           }
 
-          check_page 'https://brazilginga.neocities.org/Canada/' 'The rules already existed. Canada and the United States wrote them in 1989.'
-          check_page 'https://brazilginga.neocities.org/Canada/lake-ontario-1989-naming-rules-august-30-2026.html' 'The rules already existed.'
-          check_page 'https://brazilginga.neocities.org/Canada/google-mapquest-who-owns-the-map-august-30-2026.html' 'MapQuest chose not to.'
-          check_page 'https://brazilginga.neocities.org/Canada/google-mapquest-who-owns-the-map-august-30-2026.html' 'lake-maps-headshot-august-30-2026.jpg'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'They already wrote the rules: the 1989 Canada–U.S. agreement behind the Lake Ontario fight'
+          check_page 'https://brazilginga.neocities.org/Canada/canada-us-1989-shared-geographic-names-agreement-lake-ontario-august-30-2026.html' 'There is a rulebook for this.'
+          check_page 'https://brazilginga.neocities.org/Canada/google-maps-lake-ontario-lake-america-august-30-2026.html' 'MapQuest proves there was a choice'
+          check_page 'https://brazilginga.neocities.org/Canada/google-maps-lake-ontario-lake-america-august-30-2026.html' 'lake-maps-headshot-august-30-2026.jpg'
           check_page 'https://brazilginga.neocities.org/Canada/trump-canadian-companies-move-us-august-30-2026.html' 'trump-headshot-v3-august-30-2026.jpg'
           check_image 'https://brazilginga.neocities.org/Canada/assets/trump-headshot-v3-august-30-2026.jpg'
           check_page 'https://brazilginga.neocities.org/Canada/abacus-liberals-ten-point-lead-trump-august-30-2026.html' 'The headline numbers:'
