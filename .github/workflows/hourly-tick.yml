@@ -8,6 +8,7 @@ on:
     paths:
       - '.github/workflows/hourly-tick.yml'
       - 'scripts/update_canada_tick.py'
+      - 'scripts/normalize_canada_ticker_speed.py'
 
 permissions:
   contents: write
@@ -30,6 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/update_canada_tick.py
+          python3 scripts/normalize_canada_ticker_speed.py
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -46,19 +48,11 @@ jobs:
           if label_count != 1:
               raise SystemExit('Could not normalize THE TICK label')
 
-          # Midpoint between the 34-second and 44-second settings.
-          text, speed_count = re.subn(
-              r'animation:ticker\s+\d+(?:\.\d+)?s\s+linear\s+infinite',
-              'animation:ticker 39s linear infinite',
-              text,
-              count=1,
-          )
-          if speed_count != 1:
-              raise SystemExit('Could not set THE TICK scroll speed')
-
           match = re.search(r'<!-- HOURLY_TICK_AUTO_BEGIN -->(.*?)<!-- HOURLY_TICK_AUTO_END -->', text, re.S)
           if not match or '<a ' not in match.group(1):
               raise SystemExit('Hourly ticker produced no headlines')
+          if 'id="ticker-speed-controller"' not in text or 'var pxPerSecond=125' not in text:
+              raise SystemExit('Constant-speed controller missing from THE TICK')
 
           page.write_text(text, encoding='utf-8')
           PY
@@ -103,7 +97,8 @@ jobs:
               && grep -Fq 'HOURLY_TICK_AUTO_BEGIN' "$tmp" \
               && grep -Fq '<span class="tick-label">THE TICK</span>' "$tmp" \
               && ! grep -Eq '<span class="tick-label">[^<]*CHECKED' "$tmp" \
-              && grep -Fq 'animation:ticker 39s linear infinite' "$tmp" \
+              && grep -Fq 'id="ticker-speed-controller"' "$tmp" \
+              && grep -Fq 'var pxPerSecond=125' "$tmp" \
               && grep -Fq 'tradingview-widget-container' "$tmp"; then
               ok=1
               break
@@ -112,4 +107,4 @@ jobs:
           done
           rm -f "$tmp"
           (( ok == 1 )) || { echo 'Hourly THE TICK upload did not verify on Neocities' >&2; exit 1; }
-          echo 'Hourly THE TICK is live and verified.'
+          echo 'Hourly THE TICK is live and verified at one measured visual speed.'
