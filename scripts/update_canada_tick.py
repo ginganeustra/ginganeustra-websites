@@ -427,7 +427,7 @@ def main() -> int:
     ranked = sorted(dedup.values(), key=lambda x: (x.score, x.published), reverse=True)
     federal_ranked = sorted(
         (item for item in dedup.values() if item.lane == "federal"),
-        key=lambda x: x.published,
+        key=lambda x: (x.score, x.published),
         reverse=True,
     )
     europe_ranked = [item for item in ranked if item.lane == "europe"]
@@ -454,6 +454,8 @@ def main() -> int:
         add_item(item)
 
     for item in ranked:
+        if item.lane in {"federal", "europe"}:
+            continue
         add_item(item)
 
     if len(selected) < MAX_HEADLINES:
