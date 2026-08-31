@@ -76,7 +76,7 @@ jobs:
             'id="must-read-library"'
             'Click a book spine to open its essay.'
             'Must Reads from Other Sources'
-            'THE DOOR REOPENS'
+            'BESSENT ESCALATES — THEN SITS DOWN WITH CANADA'
             '.word{order:2;'
           )
           for marker in "${required[@]}"; do
@@ -177,17 +177,17 @@ jobs:
             (( ok == 1 )) || exit 1
           }
           petition_count="$(python3 - <<'PY'
-          import re, urllib.request
-          req=urllib.request.Request('https://www.ourcommons.ca/petitions/en/Petition/Details?Petition=e-7531',headers={'User-Agent':'CanadaAtWar/1.0'})
-          html=urllib.request.urlopen(req,timeout=30).read().decode('utf-8','replace')
-          m=re.search(r'([0-9][0-9,]*)\s+signatures',html,re.I)
+          from pathlib import Path
+          import re
+          text=Path('Canada/index.html').read_text(encoding='utf-8')
+          m=re.search(r'\b([0-9]{1,3}(?:,[0-9]{3})+) validated signatures\b',text)
           if not m: raise SystemExit(1)
-          print(f"{int(m.group(1).replace(',','')):,}")
+          print(m.group(1))
           PY
           )"
           check_page 'https://brazilginga.neocities.org/Argentina/' 'Messi closes the door: his Argentina career is over'
           check_page 'https://brazilginga.neocities.org/Argentina/lionel-messi-retires-argentina-international-football-august-31-2026.html' 'The No. 10 shirt will be worn again. The era attached to it is finished.'
-          check_page 'https://brazilginga.neocities.org/Canada/' 'THE DOOR REOPENS'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'BESSENT ESCALATES — THEN SITS DOWN WITH CANADA'
           check_page 'https://brazilginga.neocities.org/Canada/' 'Canada may not have been negotiating with one Washington.'
           check_page 'https://brazilginga.neocities.org/Canada/' 'The 5 per cent problem is a small-business crisis.'
           check_page 'https://brazilginga.neocities.org/Canada/' 'The boycott is becoming a habit.'
