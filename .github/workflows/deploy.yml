@@ -132,14 +132,13 @@ jobs:
           done
           (( failed == 0 ))
 
-      - name: Rebuild and upload five-item THE TICK before verification
+      - name: Validate and upload five-item THE TICK before verification
         env:
           NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           [[ -n "${NEOCITIES_API_KEY:-}" ]] || exit 1
-          python3 scripts/update_canada_tick.py
           python3 scripts/normalize_canada_ticker_speed.py
           python3 - <<'PY'
           from pathlib import Path
