@@ -30,6 +30,19 @@ US_CONFLICT_TERMS = (
     "u.s. tariffs", "us tariff", "us tariffs", "51st state",
 )
 
+# These are ordinary politics even when a headline uses the trade war as scenery.
+# They are excluded unless the title itself also contains a concrete trade-policy action.
+POLITICAL_CONTEXT_TERMS = (
+    "byelection", "by-election", "election", "poll", "polling", "vote", "voting",
+    "campaign", "candidate", "riding", "approval rating", "seat projection",
+)
+CONCRETE_TRADE_ACTION_TERMS = (
+    "tariff", "tariffs", "trade talks", "trade negotiation", "trade negotiations",
+    "trade deal", "trade agreement", "usmca", "cusma", "counter-tariff", "counter tariff",
+    "retaliatory tariff", "retaliatory tariffs", "customs duty", "import duty", "section 232",
+    "section 301",
+)
+
 
 def is_trade_war_text(text: str) -> bool:
     t = f" {text.lower()} "
@@ -38,11 +51,20 @@ def is_trade_war_text(text: str) -> bool:
     return any(term in t for term in TRADE_RESPONSE_TERMS) and any(term in t for term in US_CONFLICT_TERMS)
 
 
+def is_incidental_politics(title: str) -> bool:
+    t = f" {title.lower()} "
+    if not any(term in t for term in POLITICAL_CONTEXT_TERMS):
+        return False
+    return not any(term in t for term in CONCRETE_TRADE_ACTION_TERMS)
+
+
 _original_score = tick.score_item
 _original_existing = tick.existing_unique_anchors
 
 
 def trade_score_item(title: str, summary: str, source: str, lane: str) -> int:
+    if is_incidental_politics(title):
+        return -1
     combined = f"{title} {summary}"
     if not is_trade_war_text(combined):
         return -1
@@ -55,8 +77,13 @@ def trade_score_item(title: str, summary: str, source: str, lane: str) -> int:
 
 
 def trade_existing(text: str):
-    # Never let the fallback mechanism preserve a stale non-trade-war headline.
-    return [(href, label) for href, label in _original_existing(text) if is_trade_war_text(label)]
+    # Never let the fallback preserve stale, incidental or non-trade-war headlines.
+    kept = []
+    for href, label in _original_existing(text):
+        headline = label.split(" · ", 1)[-1].split(" — ", 1)[0]
+        if is_trade_war_text(label) and not is_incidental_politics(headline):
+            kept.append((href, label))
+    return kept
 
 
 def trade_topic_label(title: str) -> str:
