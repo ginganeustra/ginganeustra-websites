@@ -30,7 +30,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The National/Canada feed carries relevant sovereignty and trade stories
+          # that do not always appear in Global's Politics or Money feeds. Add it
+          # for this run, while keeping the updater's existing Canada-at-War issue gate.
+          python3 - <<'PY'
+          from pathlib import Path
+          script = Path('scripts/update_canada_tick.py')
+          text = script.read_text(encoding='utf-8')
+          needle = '    ("Global Politics", "https://globalnews.ca/politics/feed/"),\n'
+          addition = '    ("Global Canada", "https://globalnews.ca/canada/feed/"),\n' + needle
+          if 'https://globalnews.ca/canada/feed/' not in text:
+              if needle not in text:
+                  raise SystemExit('Could not locate Global Politics feed insertion point')
+              text = text.replace(needle, addition, 1)
+              script.write_text(text, encoding='utf-8')
+          PY
           python3 scripts/update_canada_tick.py
+          git checkout -- scripts/update_canada_tick.py
           python3 - <<'PY'
           from pathlib import Path
           import re
