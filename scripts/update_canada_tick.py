@@ -22,10 +22,11 @@ ET_ZONE = ZoneInfo("America/Toronto")
 USER_AGENT = "CanadaAtWar-HourlyTick/1.0 (+https://brazilginga.neocities.org/Canada/)"
 
 FEEDS = (
-    ("CBC Politics", "https://www.cbc.ca/webfeed/rss/rss-politics"),
-    ("CBC Business", "https://www.cbc.ca/webfeed/rss/rss-business"),
     ("Global Politics", "https://globalnews.ca/politics/feed/"),
     ("Global Money", "https://globalnews.ca/money/feed/"),
+    ("CTV Politics", "https://www.ctvnews.ca/rss/ctvnews-ca-politics-public-rss-1.822302"),
+    ("CTV Autos", "https://www.ctvnews.ca/rss/autos/ctv-news-autos-1.867636"),
+    ("CTV Canada", "https://www.ctvnews.ca/rss/ctvnews-ca-canada-public-rss-1.822284"),
     (
         "Global Affairs Canada",
         "https://api.io.canada.ca/io-server/gc/news/en/v2?atomtitle=Global+Affairs+Canada+news&dept=departmentofforeignaffairstradeanddevelopment&format=atom&orderBy=desc&pick=1000&publishedDate%3E=2015-01-01&sort=publishedDate",
@@ -127,7 +128,7 @@ def score_item(title: str, summary: str, source: str) -> int:
 
 def fetch_feed(source: str, url: str) -> list[Item]:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*"})
-    with urllib.request.urlopen(req, timeout=25) as response:
+    with urllib.request.urlopen(req, timeout=12) as response:
         data = response.read()
     root = ET.fromstring(data)
     nodes = [n for n in root.iter() if n.tag.rsplit("}", 1)[-1].lower() in {"item", "entry"}]
@@ -205,7 +206,7 @@ def main() -> int:
         except Exception as exc:  # network/feed failures should not corrupt the page
             errors.append(f"{source}: {exc}")
 
-    if successful < 2:
+    if successful < 3:
         for error in errors:
             print(f"Feed error: {error}", file=sys.stderr)
         raise SystemExit(f"Only {successful} ticker feeds were reachable; refusing to rewrite THE TICK")
