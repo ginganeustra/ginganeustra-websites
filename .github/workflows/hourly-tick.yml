@@ -46,9 +46,10 @@ jobs:
           if label_count != 1:
               raise SystemExit('Could not normalize THE TICK label')
 
+          # 44 seconds / 1.30 = 33.85 seconds: about 30% faster than the previous setting.
           text, speed_count = re.subn(
               r'animation:ticker\s+\d+(?:\.\d+)?s\s+linear\s+infinite',
-              'animation:ticker 44s linear infinite',
+              'animation:ticker 34s linear infinite',
               text,
               count=1,
           )
@@ -102,7 +103,7 @@ jobs:
               && grep -Fq 'HOURLY_TICK_AUTO_BEGIN' "$tmp" \
               && grep -Fq '<span class="tick-label">THE TICK</span>' "$tmp" \
               && ! grep -Eq '<span class="tick-label">[^<]*CHECKED' "$tmp" \
-              && grep -Fq 'animation:ticker 44s linear infinite' "$tmp" \
+              && grep -Fq 'animation:ticker 34s linear infinite' "$tmp" \
               && grep -Fq 'tradingview-widget-container' "$tmp"; then
               ok=1
               break
