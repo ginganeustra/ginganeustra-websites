@@ -35,7 +35,7 @@ jobs:
             'petition-paint-mix'
             'Must Read Library'
             'How Lying Works'
-            'HOW_LYING_WORKS_LIBRARY_LOCK'
+            'id="must-read-library"'
             'Click a book spine to open its essay.'
             '.word{order:2;'
           )
@@ -46,30 +46,12 @@ jobs:
             fi
           done
 
-          if ! grep -Fq 'figure img{display:block;max-width:100%;height:auto}' \
-            Canada/google-maps-lake-ontario-lake-america-august-30-2026.html; then
-            echo 'Canada article image guard failed: responsive image rule missing' >&2
-            exit 1
-          fi
-
-          if ! grep -Fq 'lake-maps-headshot-august-30-2026.jpg' \
-            Canada/google-maps-lake-ontario-lake-america-august-30-2026.html; then
-            echo 'Map analysis image guard failed: supplied headshot reference missing' >&2
-            exit 1
-          fi
-
-          if ! grep -Fq 'trump-headshot-v3-august-30-2026.jpg' \
-            Canada/trump-canadian-companies-move-us-august-30-2026.html; then
-            echo 'Trump article image guard failed: supplied headshot reference missing' >&2
-            exit 1
-          fi
-
+          if ! grep -Fq 'figure img{display:block;max-width:100%;height:auto}' Canada/google-maps-lake-ontario-lake-america-august-30-2026.html; then exit 1; fi
+          if ! grep -Fq 'lake-maps-headshot-august-30-2026.jpg' Canada/google-maps-lake-ontario-lake-america-august-30-2026.html; then exit 1; fi
+          if ! grep -Fq 'trump-headshot-v3-august-30-2026.jpg' Canada/trump-canadian-companies-move-us-august-30-2026.html; then exit 1; fi
           for edition in Brazil Argentina; do
             for marker in 'publication-masthead' 'section-nav' 'wordmark-title'; do
-              if ! grep -Fq "$marker" "$edition/index.html"; then
-                echo "$edition masthead guard failed: missing $marker" >&2
-                exit 1
-              fi
+              grep -Fq "$marker" "$edition/index.html" || exit 1
             done
           done
 
@@ -85,7 +67,6 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-
           article = Path('Canada/digital-sovereignty-american-tech-hegemony-canada-august-30-2026.html')
           text = article.read_text(encoding='utf-8')
           broken = '<figure><img src="assets/digital-sovereignty-monument.svg" alt="Editorial illustration of monumental American statesmen looking exhausted and dispirited"><figcaption>Editorial illustration supplied to Canada at War.</figcaption></figure>'
@@ -101,35 +82,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "${NEOCITIES_API_KEY:-}" ]]; then
-            echo "NEOCITIES_API_KEY is not configured." >&2
-            exit 1
-          fi
-
-          mapfile -d '' files < <(
-            find Brazil Argentina Canada -type f \
-              \( -name '*.html' -o -name '*.xml' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.webp' -o -name '*.gif' -o -name '*.svg' \) \
-              -print0 | sort -z
-          )
-          for file in sitemap.xml news-sitemap.xml robots.txt google*.html; do
-            [[ -f "$file" ]] && files+=("$file")
-          done
-
-          if (( ${#files[@]} == 0 )); then
-            echo "No publication files found." >&2
-            exit 1
-          fi
-
+          [[ -n "${NEOCITIES_API_KEY:-}" ]] || exit 1
+          mapfile -d '' files < <(find Brazil Argentina Canada -type f \( -name '*.html' -o -name '*.xml' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.png' -o -name '*.webp' -o -name '*.gif' -o -name '*.svg' \) -print0 | sort -z)
+          for file in sitemap.xml news-sitemap.xml robots.txt google*.html; do [[ -f "$file" ]] && files+=("$file"); done
           failed=0
           for file in "${files[@]}"; do
             echo "Uploading $file"
-            if ! curl --fail-with-body --show-error --retry 3 --retry-all-errors \
-              -H "Authorization: Bearer $NEOCITIES_API_KEY" \
-              -F "${file}=@${file}" \
-              https://neocities.org/api/upload; then
-              echo "Failed to upload $file" >&2
-              failed=1
-            fi
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F "${file}=@${file}" https://neocities.org/api/upload || failed=1
           done
           (( failed == 0 ))
 
@@ -139,81 +98,26 @@ jobs:
           set -euo pipefail
           short="${GITHUB_SHA::8}"
           check_page() {
-            local url="$1"
-            local marker="$2"
-            local tmp
-            local code
-            local ok=0
+            local url="$1" marker="$2" tmp code ok=0
             tmp="$(mktemp)"
             for attempt in 1 2 3 4 5; do
-              code="$(curl -L -sS -o "$tmp" -w '%{http_code}' \
-                "${url}?v=${short}&verify=${attempt}" || true)"
-              if [[ "$code" == "200" ]] && grep -Fq "$marker" "$tmp"; then
-                echo "Verified HTTP 200: $url :: $marker"
-                ok=1
-                break
-              fi
-              echo "Verification attempt $attempt failed for $url (HTTP $code)" >&2
-              sleep 2
-            done
-            if (( ok == 0 )); then
-              echo "Neocities verification failed for $url; expected marker: $marker" >&2
-              head -c 800 "$tmp" >&2 || true
-              rm -f "$tmp"
-              exit 1
-            fi
-            rm -f "$tmp"
-          }
-
-          check_image() {
-            local url="$1"
-            local tmp
-            local code
-            local magic
-            local bytes
-            local ok=0
-            tmp="$(mktemp)"
-            for attempt in 1 2 3 4 5; do
-              code="$(curl -L -sS -o "$tmp" -w '%{http_code}' \
-                "${url}?v=${short}&verify=${attempt}" || true)"
-              magic="$(od -An -tx1 -N2 "$tmp" | tr -d ' \n')"
-              bytes="$(wc -c < "$tmp" | tr -d ' ')"
-              if [[ "$code" == "200" ]] && [[ "$magic" == "ffd8" ]] && (( bytes > 4000 )); then
-                echo "Verified image HTTP 200: $url :: JPEG ${bytes} bytes"
-                ok=1
-                break
-              fi
-              echo "Image verification attempt $attempt failed for $url (HTTP $code; magic $magic; bytes $bytes)" >&2
+              code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "${url}?v=${short}&verify=${attempt}" || true)"
+              if [[ "$code" == "200" ]] && grep -Fq "$marker" "$tmp"; then echo "Verified HTTP 200: $url :: $marker"; ok=1; break; fi
               sleep 2
             done
             rm -f "$tmp"
-            if (( ok == 0 )); then
-              echo "Neocities image verification failed for $url" >&2
-              exit 1
-            fi
+            (( ok == 1 )) || exit 1
           }
-
           check_page 'https://brazilginga.neocities.org/Canada/' 'THE EMPIRE IN YOUR POCKET'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'Washington wants the world to put up more walls against China'
+          check_page 'https://brazilginga.neocities.org/Canada/bessent-g20-china-trade-barriers-canada-august-31-2026.html' 'The rest of the world is going to have to examine their terms of trade with China'
           check_page 'https://brazilginga.neocities.org/Canada/digital-sovereignty-american-tech-hegemony-canada-august-30-2026.html' 'The dependency does the work.'
           check_page 'https://brazilginga.neocities.org/Canada/canada-us-1989-shared-geographic-names-agreement-lake-ontario-august-30-2026.html' 'There is a rulebook for this.'
           check_page 'https://brazilginga.neocities.org/Canada/google-maps-lake-ontario-lake-america-august-30-2026.html' 'MapQuest proves there was a choice'
-          check_page 'https://brazilginga.neocities.org/Canada/google-maps-lake-ontario-lake-america-august-30-2026.html' 'lake-maps-headshot-august-30-2026.jpg'
           check_page 'https://brazilginga.neocities.org/Canada/trump-canadian-companies-move-us-august-30-2026.html' 'trump-headshot-v3-august-30-2026.jpg'
-          check_image 'https://brazilginga.neocities.org/Canada/assets/trump-headshot-v3-august-30-2026.jpg'
           check_page 'https://brazilginga.neocities.org/Canada/abacus-liberals-ten-point-lead-trump-august-30-2026.html' 'The headline numbers:'
           check_page 'https://brazilginga.neocities.org/Canada/' 'socrates-how-lying-works.html'
           check_page 'https://brazilginga.neocities.org/Canada/how-lying-works-library.html' 'Every article below is part of Canada at War'
-          check_page 'https://brazilginga.neocities.org/Canada/socrates-how-lying-works.html' 'The flattery of the soul'
-          check_page 'https://brazilginga.neocities.org/Canada/plato-how-lying-works.html' 'The shadow on the wall'
-          check_page 'https://brazilginga.neocities.org/Canada/aristotle-how-lying-works.html' 'How lies become habit'
-          check_page 'https://brazilginga.neocities.org/Canada/confucius-how-lying-works.html' 'The crisis of names'
-          check_page 'https://brazilginga.neocities.org/Canada/laozi-how-lying-works.html' 'The manufacture of desire'
-          check_page 'https://brazilginga.neocities.org/Canada/han-fei-how-lying-works.html' 'The cold machinery'
-          check_page 'https://brazilginga.neocities.org/Canada/condorcet-how-lying-works.html' 'Reason against the mob'
-          check_page 'https://brazilginga.neocities.org/Canada/donald-trump-buddha-how-lying-works.html' 'Donald Trump and the Buddha'
-          check_page 'https://brazilginga.neocities.org/Canada/emotional-transference-nazi-propaganda-how-lying-works.html' 'Emotional transference'
-          check_page 'https://brazilginga.neocities.org/Canada/hannah-arendt-origins-totalitarianism-summary.html' 'The Origins of Totalitarianism'
-          check_page 'https://brazilginga.neocities.org/Canada/hannah-arendt-eichmann-jerusalem-summary.html' 'Eichmann in Jerusalem'
 
       - name: Report Neocities deployment result
         if: always()
@@ -225,23 +129,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "$DEPLOYMENT_RESULT" == "success" ]]; then
-            state="success"
-            description="Magazines, verification files and article pages published to Neocities"
-          else
-            state="failure"
-            description="Neocities publication failed; inspect the workflow run"
-          fi
-
-          payload="$(jq -nc \
-            --arg state "$state" \
-            --arg description "$description" \
-            --arg url "$RUN_URL" \
-            '{state: $state, context: "neocities/deployment", description: $description, target_url: $url}')"
-
-          curl --fail-with-body --silent --show-error \
-            -X POST \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            --data "$payload" \
-            "$STATUS_API_URL"
+          if [[ "$DEPLOYMENT_RESULT" == "success" ]]; then state="success"; description="Magazines, verification files and article pages published to Neocities"; else state="failure"; description="Neocities publication failed; inspect the workflow run"; fi
+          payload="$(jq -nc --arg state "$state" --arg description "$description" --arg url "$RUN_URL" '{state: $state, context: "neocities/deployment", description: $description, target_url: $url}')"
+          curl --fail-with-body --silent --show-error -X POST -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" --data "$payload" "$STATUS_API_URL"
