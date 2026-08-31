@@ -79,6 +79,26 @@ jobs:
           set -euo pipefail
           python3 scripts/strip_publication_image_metadata.py
 
+      - name: Remove unavailable Statue of Liberty image
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          homepage = Path('Canada/index.html')
+          text = homepage.read_text(encoding='utf-8')
+          text = text.replace('<img src="assets/statue-of-liberty-petition-watch.jpg" alt="Editorial illustration of a dejected Statue of Liberty with her head in her hands and smoke rising from a cigarette">', '')
+          text = text.replace("b.src='assets/statue-of-liberty-petition-watch.jpg'", "b.src='assets/pete-hoekstra-official-portrait.jpg'")
+          homepage.write_text(text, encoding='utf-8')
+
+          petition = Path('Canada/pete-hoekstra-petition-watch-august-29-2026.html')
+          text = petition.read_text(encoding='utf-8')
+          text = text.replace('<img class="art" src="assets/statue-of-liberty-petition-watch.jpg" alt="Editorial illustration of a dejected Statue of Liberty with her head in her hands and smoke rising from a cigarette">', '')
+          text = text.replace('<li>Canada at War editorial illustration: Statue of Liberty, generated for this petition-watch feature.</li>', '')
+          petition.write_text(text, encoding='utf-8')
+          PY
+
       - name: Upload publication pages, images, verification files and sitemaps
         env:
           NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
