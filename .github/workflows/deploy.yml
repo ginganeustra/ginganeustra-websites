@@ -131,31 +131,29 @@ jobs:
           done
           (( failed == 0 ))
 
-      - name: Rebuild and upload trade-war-only ticker before verification
+      - name: Rebuild and upload full THE TICK before verification
         env:
           NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           [[ -n "${NEOCITIES_API_KEY:-}" ]] || exit 1
-          python3 scripts/update_canada_trade_tick.py
+          python3 scripts/update_canada_tick.py
+          python3 scripts/normalize_canada_ticker_speed.py
           python3 - <<'PY'
           from pathlib import Path
           import re
-          from html import unescape
           text = Path('Canada/index.html').read_text(encoding='utf-8')
           m = re.search(r'<!-- HOURLY_TICK_AUTO_BEGIN -->(.*?)<!-- HOURLY_TICK_AUTO_END -->', text, re.S)
           if not m:
-              raise SystemExit('No protected hourly ticker block after trade-war rebuild')
+              raise SystemExit('No protected hourly ticker block after full rebuild')
           labels = re.findall(r'<a\b[^>]*>(.*?)</a>', m.group(1), re.S)
-          if not labels:
-              raise SystemExit('Trade-war ticker rebuild produced no headlines')
-          allowed = ('TRADE WAR · ', 'AUTO TARIFF · ', 'EUROPE TRADE · ', 'CHINA TRADE · ', 'METALS TARIFF · ')
-          for raw in labels:
-              plain = re.sub(r'<[^>]+>', ' ', unescape(raw))
-              plain = re.sub(r'\s+', ' ', plain).strip()
-              if not plain.startswith(allowed):
-                  raise SystemExit(f'Non-trade-war ticker label blocked from deployment: {plain}')
+          if len(labels) < 12:
+              raise SystemExit('Full ticker rebuild produced too few headline anchors')
+          if 'Government of Canada' not in m.group(1):
+              raise SystemExit('Federal government announcements missing from full ticker rebuild')
+          if 'id="ticker-speed-controller"' not in text or 'var pxPerSecond=125' not in text:
+              raise SystemExit('Constant-speed controller missing after full ticker rebuild')
           PY
           curl --fail-with-body --show-error --retry 3 --retry-all-errors \
             -H "Authorization: Bearer $NEOCITIES_API_KEY" \
@@ -190,6 +188,9 @@ jobs:
           check_page 'https://brazilginga.neocities.org/Argentina/' 'Messi closes the door: his Argentina career is over'
           check_page 'https://brazilginga.neocities.org/Argentina/lionel-messi-retires-argentina-international-football-august-31-2026.html' 'The No. 10 shirt will be worn again. The era attached to it is finished.'
           check_page 'https://brazilginga.neocities.org/Canada/' 'TRUMP CALLED APPLE'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'ticker-speed-controller'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'Must Reads from Other Sources'
+          check_page 'https://brazilginga.neocities.org/Canada/must-reads-from-other-sources.html' 'Canada’s Trade War Is a Fight for the Free World'
           check_page 'https://brazilginga.neocities.org/Canada/trump-pressures-apple-lake-ontario-lake-america-august-31-2026.html' 'The line that matters:'
           check_page 'https://brazilginga.neocities.org/Canada/toyota-honda-canada-50-percent-auto-tariff-august-31-2026.html' 'The strategic contradiction:'
           check_page 'https://brazilginga.neocities.org/Canada/anita-anand-eu-gymnich-carney-europe-august-31-2026.html' 'Why this is new:'
