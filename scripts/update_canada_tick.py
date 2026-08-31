@@ -9,6 +9,7 @@ This script edits only the ticker label and ticker-track region in Canada/index.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
@@ -17,14 +18,13 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-import time
 import urllib.request
 import xml.etree.ElementTree as ET
 from zoneinfo import ZoneInfo
 
 PAGE = Path("Canada/index.html")
 ET_ZONE = ZoneInfo("America/Toronto")
-USER_AGENT = "Mozilla/5.0 (compatible; CanadaAtWar-HourlyTick/1.2; +https://brazilginga.neocities.org/Canada/)"
+USER_AGENT = "Mozilla/5.0 (compatible; CanadaAtWar-HourlyTick/1.3; +https://brazilginga.neocities.org/Canada/)"
 ACCEPT = "application/rss+xml, application/atom+xml, application/xml, text/xml, */*"
 
 # Original tight source set.
@@ -39,7 +39,7 @@ DOMESTIC_FEEDS = (
     ),
 )
 
-# Separate Europe lane. These feeds do NOT bypass the Canada-at-War filter.
+# Separate Europe lane. These feeds do not bypass the Canada-at-War filter.
 EUROPE_FEEDS = (
     ("European Parliament Delegations", "https://www.europarl.europa.eu/rss/doc/last-news-delegations/en.xml"),
     ("European Parliament Press", "https://www.europarl.europa.eu/rss/doc/press-releases/en.xml"),
@@ -96,11 +96,12 @@ def clean_text(value: str | None) -> str:
 def parse_date(value: str | None) -> datetime:
     if not value:
         return datetime.now(timezone.utc)
+    value = value.strip()
     try:
-        dt = parsedate_to_datetime(value.strip())
+        dt = parsedate_to_datetime(value)
     except (TypeError, ValueError, OverflowError):
         try:
-            dt = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             return datetime.now(timezone.utc)
     if dt.tzinfo is None:
@@ -150,15 +151,15 @@ def score_item(title: str, summary: str, source: str, lane: str) -> int:
     if source == "Global Affairs Canada":
         score += 2
     if lane == "europe":
-        score += 2  # tie-break only AFTER the anti-dilution gate passes
+        score += 2  # tie-break only after the anti-dilution gate passes
     if any(x in text for x in ("tariff", "trade", "sovereign", "norad", "f-35", "gripen", "ceta")):
         score += 3
     return score
 
 
-def urllib_fetch(url: str, timeout: int = 14) -> bytes:
+def urllib_fetch(url: str) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": ACCEPT})
-    with urllib.request.urlopen(req, timeout=timeout) as response:
+    with urllib.request.urlopen(req, timeout=11) as response:
         return response.read()
 
 
@@ -167,30 +168,25 @@ def curl_fetch(url: str) -> bytes:
     # from GitHub-hosted runners while the same RSS endpoint remained healthy.
     cmd = [
         "curl", "--http1.1", "--fail", "--silent", "--show-error", "--location", "--compressed",
-        "--retry", "2", "--retry-delay", "1", "--connect-timeout", "6", "--max-time", "20",
+        "--retry", "1", "--retry-delay", "1", "--connect-timeout", "5", "--max-time", "12",
         "--user-agent", USER_AGENT, "--header", f"Accept: {ACCEPT}", url,
     ]
-    completed = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    completed = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=14)
     if not completed.stdout:
         raise RuntimeError("empty feed response")
     return completed.stdout
 
 
 def fetch_bytes(url: str) -> bytes:
-    """Retry the SAME source with two transports; never substitute a broad feed."""
-    errors: list[str] = []
-    # CBC has been more reliable over curl HTTP/1.1 from Actions; other sources
-    # are fastest through urllib. Each gets the other method as a fallback.
+    """Try two transports for the same source, with strict time bounds."""
     methods = (curl_fetch, urllib_fetch) if "cbc.ca" in url else (urllib_fetch, curl_fetch)
+    errors: list[str] = []
     for method in methods:
-        for attempt in range(2):
-            try:
-                return method(url)
-            except Exception as exc:
-                errors.append(f"{method.__name__}: {exc}")
-                if attempt == 0:
-                    time.sleep(1)
-    raise RuntimeError(" | ".join(errors[-3:]))
+        try:
+            return method(url)
+        except Exception as exc:
+            errors.append(f"{method.__name__}: {exc}")
+    raise RuntimeError(" | ".join(errors))
 
 
 def fetch_feed(source: str, url: str, lane: str) -> list[Item]:
@@ -262,24 +258,27 @@ def main() -> int:
     domestic_success = 0
     europe_success = 0
 
-    for source, url in DOMESTIC_FEEDS:
-        try:
-            candidates.extend(fetch_feed(source, url, "domestic"))
-            domestic_success += 1
-        except Exception as exc:
-            errors.append(f"{source}: {exc}")
+    specs = [(source, url, "domestic") for source, url in DOMESTIC_FEEDS]
+    specs += [(source, url, "europe") for source, url in EUROPE_FEEDS]
+
+    # One slow publisher must never delay the rest of the hourly sweep.
+    with ThreadPoolExecutor(max_workers=len(specs)) as pool:
+        futures = {pool.submit(fetch_feed, source, url, lane): (source, lane) for source, url, lane in specs}
+        for future in as_completed(futures):
+            source, lane = futures[future]
+            try:
+                candidates.extend(future.result())
+                if lane == "domestic":
+                    domestic_success += 1
+                else:
+                    europe_success += 1
+            except Exception as exc:
+                errors.append(f"{source}: {exc}")
 
     if domestic_success < 3:
         for error in errors:
             print(f"Feed error: {error}", file=sys.stderr)
         raise SystemExit(f"Only {domestic_success}/{len(DOMESTIC_FEEDS)} core ticker feeds were reachable; refusing to rewrite THE TICK")
-
-    for source, url in EUROPE_FEEDS:
-        try:
-            candidates.extend(fetch_feed(source, url, "europe"))
-            europe_success += 1
-        except Exception as exc:
-            errors.append(f"{source}: {exc}")
 
     dedup: dict[str, Item] = {}
     for item in candidates:
