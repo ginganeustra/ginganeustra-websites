@@ -39,6 +39,15 @@ CANADA_ANCHORS = (
     "gripen", "lake ontario", "lake america", "freeland", "joly", "champagne",
 )
 
+CORE_TERMS = (
+    "trump", "tariff", "trade", "united states", "u.s.", "washington", "usmca",
+    "cusma", "sovereign", "sovereignty", "apple", "lake ontario", "lake america",
+    "china", "beijing", "europe", "european union", " eu ", "mexico", "norad",
+    "f-35", "gripen", "defence", "defense", "critical mineral", "steel",
+    "aluminum", "aluminium", "dairy", "sanction", "foreign affairs", "g20", "g7",
+    "51st state", "digital sovereignty",
+)
+
 ISSUE_TERMS = (
     "trump", "tariff", "trade", "united states", "u.s.", "washington", "apple",
     "toyota", "honda", "auto", "automaker", "china", "beijing", "europe",
@@ -97,7 +106,6 @@ def child_text(node: ET.Element, names: tuple[str, ...]) -> str:
 
 
 def item_link(node: ET.Element) -> str:
-    # RSS normally uses <link>text</link>; Atom normally uses <link href="...">.
     for child in node.iter():
         if child.tag.rsplit("}", 1)[-1].lower() != "link":
             continue
@@ -113,6 +121,8 @@ def item_link(node: ET.Element) -> str:
 def score_item(title: str, summary: str, source: str) -> int:
     text = f" {title} {summary} ".lower()
     if not any(anchor in text for anchor in CANADA_ANCHORS):
+        return -1
+    if not any(term in text for term in CORE_TERMS):
         return -1
     hits = sum(1 for term in ISSUE_TERMS if term in text)
     if hits == 0:
@@ -203,7 +213,7 @@ def main() -> int:
         try:
             candidates.extend(fetch_feed(source, url))
             successful += 1
-        except Exception as exc:  # network/feed failures should not corrupt the page
+        except Exception as exc:
             errors.append(f"{source}: {exc}")
 
     if successful < 3:
@@ -211,7 +221,6 @@ def main() -> int:
             print(f"Feed error: {error}", file=sys.stderr)
         raise SystemExit(f"Only {successful} ticker feeds were reachable; refusing to rewrite THE TICK")
 
-    # Deduplicate, then prefer relevance first and recency second.
     dedup: dict[str, Item] = {}
     for item in candidates:
         key = normalize_title(item.title)
@@ -234,7 +243,6 @@ def main() -> int:
         if len(selected) >= 6:
             break
 
-    # Fill any thin hour with the previous editorial ticker rather than inventing copy.
     if len(selected) < 5:
         for href, label in existing_unique_anchors(text):
             if href in seen_hrefs:
@@ -273,7 +281,6 @@ def main() -> int:
     if label_count != 1:
         raise SystemExit("Could not locate THE TICK label in Canada/index.html")
 
-    # Structural safety: refuse to save if unrelated protected features disappeared.
     required = (
         "CANADA_AT_WAR_MASTHEAD_LOCK",
         "PINNED_LEAD_LOCK",
