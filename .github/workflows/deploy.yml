@@ -47,7 +47,6 @@ jobs:
 
           path = Path('Canada/index.html')
           text = path.read_text(encoding='utf-8')
-
           text, n1 = re.subn(r'\b[0-9]{1,3}(?:,[0-9]{3})+ validated signatures\b', f'{formatted} validated signatures', text)
           text, n2 = re.subn(r'Pete Hoekstra petition: [0-9]{1,3}(?:,[0-9]{3})+ validated signatures\.', f'Pete Hoekstra petition: {formatted} validated signatures.', text)
           if n1 == 0 and n2 == 0:
@@ -76,6 +75,8 @@ jobs:
             'How Lying Works'
             'id="must-read-library"'
             'Click a book spine to open its essay.'
+            'Must Reads from Other Sources'
+            'THE DOOR REOPENS'
             '.word{order:2;'
           )
           for marker in "${required[@]}"; do
@@ -187,12 +188,21 @@ jobs:
           )"
           check_page 'https://brazilginga.neocities.org/Argentina/' 'Messi closes the door: his Argentina career is over'
           check_page 'https://brazilginga.neocities.org/Argentina/lionel-messi-retires-argentina-international-football-august-31-2026.html' 'The No. 10 shirt will be worn again. The era attached to it is finished.'
-          check_page 'https://brazilginga.neocities.org/Canada/' 'TRUMP CALLED APPLE'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'THE DOOR REOPENS'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'Canada may not have been negotiating with one Washington.'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'The 5 per cent problem is a small-business crisis.'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'The boycott is becoming a habit.'
           check_page 'https://brazilginga.neocities.org/Canada/' 'ticker-speed-controller'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'var pxPerSecond=125'
           check_page 'https://brazilginga.neocities.org/Canada/' 'Must Reads from Other Sources'
+          check_page 'https://brazilginga.neocities.org/Canada/bessent-champagne-first-contact-trade-collapse-august-31-2026.html' 'Bessent and Champagne reopen the door.'
+          check_page 'https://brazilginga.neocities.org/Canada/trump-trade-team-divisions-greer-lutnick-navarro-canada-august-31-2026.html' 'Canada may not have been negotiating with one Washington.'
+          check_page 'https://brazilginga.neocities.org/Canada/canadian-small-businesses-50-percent-us-tariffs-august-31-2026.html' 'The 5 per cent problem is a small-business crisis.'
+          check_page 'https://brazilginga.neocities.org/Canada/buy-canadian-boycott-hardens-august-31-2026.html' 'The boycott is becoming a habit.'
           check_page 'https://brazilginga.neocities.org/Canada/must-reads-from-other-sources.html' 'Canada’s Trade War Is a Fight for the Free World'
+          check_page 'https://brazilginga.neocities.org/Canada/must-reads-from-other-sources.html' 'who’s calling the shots in Trump’s trade team?'
+          check_page 'https://brazilginga.neocities.org/Canada/must-reads-from-other-sources.html' 'Canadian Small Businesses to Bear Brunt of New U.S. Tariffs'
           check_page 'https://brazilginga.neocities.org/Canada/trump-pressures-apple-lake-ontario-lake-america-august-31-2026.html' 'The line that matters:'
-          check_page 'https://brazilginga.neocities.org/Canada/toyota-honda-canada-50-percent-auto-tariff-august-31-2026.html' 'The strategic contradiction:'
           check_page 'https://brazilginga.neocities.org/Canada/anita-anand-eu-gymnich-carney-europe-august-31-2026.html' 'Why this is new:'
           check_page 'https://brazilginga.neocities.org/Canada/' 'Washington wants the world to put up more walls against China'
           check_page 'https://brazilginga.neocities.org/Canada/bessent-g20-china-trade-barriers-canada-august-31-2026.html' 'The rest of the world is going to have to examine their terms of trade with China'
