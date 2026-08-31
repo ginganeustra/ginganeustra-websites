@@ -1,0 +1,80 @@
+name: Repair Neocities verifier
+
+on:
+  push:
+    paths:
+      - '.github/workflows/repair-neocities-verifier.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch stale Canada publication checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('.github/workflows/deploy.yml')
+          text = path.read_text(encoding='utf-8')
+
+          old_guard = "            'THE DOOR REOPENS'"
+          new_guard = "            'BESSENT ESCALATES — THEN SITS DOWN WITH CANADA'"
+          if text.count(old_guard) != 1:
+              raise SystemExit(f'Expected exactly one stale guard marker, found {text.count(old_guard)}')
+          text = text.replace(old_guard, new_guard, 1)
+
+          old_verify = "          check_page 'https://brazilginga.neocities.org/Canada/' 'THE DOOR REOPENS'"
+          new_verify = "          check_page 'https://brazilginga.neocities.org/Canada/' 'BESSENT ESCALATES — THEN SITS DOWN WITH CANADA'"
+          if text.count(old_verify) != 1:
+              raise SystemExit(f'Expected exactly one stale homepage verification marker, found {text.count(old_verify)}')
+          text = text.replace(old_verify, new_verify, 1)
+
+          pattern = re.compile(
+              r'''          petition_count="\$\(python3 - <<'PY'\n'''
+              r'''          import re, urllib\.request\n'''
+              r'''          req=urllib\.request\.Request\('https://www\.ourcommons\.ca/petitions/en/Petition/Details\?Petition=e-7531',headers=\{'User-Agent':'CanadaAtWar/1\.0'\}\)\n'''
+              r'''          html=urllib\.request\.urlopen\(req,timeout=30\)\.read\(\)\.decode\('utf-8','replace'\)\n'''
+              r'''          m=re\.search\(r'\(\[0-9\]\[0-9,\]\*\)\\s\+signatures',html,re\.I\)\n'''
+              r'''          if not m: raise SystemExit\(1\)\n'''
+              r'''          print\(f"\{int\(m\.group\(1\)\.replace\(',',''\)\):,\}"\)\n'''
+              r'''          PY\n'''
+              r'''          \)"'''
+          )
+          replacement = '''          petition_count="$(python3 - <<'PY'
+          from pathlib import Path
+          import re
+          text=Path('Canada/index.html').read_text(encoding='utf-8')
+          m=re.search(r'\\b([0-9]{1,3}(?:,[0-9]{3})+) validated signatures\\b',text)
+          if not m: raise SystemExit(1)
+          print(m.group(1))
+          PY
+          )"'''
+          text, count = pattern.subn(replacement, text, count=1)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one moving petition verification block, replaced {count}')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          git diff --check
+          git diff -- .github/workflows/deploy.yml
+
+      - name: Commit verifier repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'canada-at-war-publisher[bot]'
+          git config user.email 'canada-at-war-publisher[bot]@users.noreply.github.com'
+          git add .github/workflows/deploy.yml
+          git commit -m 'Fix Neocities verification for corrected Canada lead [skip ci]'
+          git push origin HEAD:main
