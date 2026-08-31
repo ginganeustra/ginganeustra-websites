@@ -132,7 +132,7 @@ jobs:
           done
           (( failed == 0 ))
 
-      - name: Rebuild and upload full THE TICK before verification
+      - name: Rebuild and upload five-item THE TICK before verification
         env:
           NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
         shell: bash
@@ -149,8 +149,8 @@ jobs:
           if not m:
               raise SystemExit('No protected hourly ticker block after full rebuild')
           labels = re.findall(r'<a\b[^>]*>(.*?)</a>', m.group(1), re.S)
-          if len(labels) < 12:
-              raise SystemExit('Full ticker rebuild produced too few headline anchors')
+          if len(labels) != 10:
+              raise SystemExit(f'Five-item ticker rebuild produced {len(labels)} anchors; expected 10 including the animation duplicate')
           if 'Government of Canada' not in m.group(1):
               raise SystemExit('Federal government announcements missing from full ticker rebuild')
           if 'id="ticker-speed-controller"' not in text or 'var pxPerSecond=125' not in text:

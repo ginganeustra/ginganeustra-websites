@@ -28,9 +28,9 @@ PAGE = Path("Canada/index.html")
 ET_ZONE = ZoneInfo("America/Toronto")
 USER_AGENT = "Mozilla/5.0 (compatible; CanadaAtWar-HourlyTick/1.6; +https://brazilginga.neocities.org/Canada/)"
 ACCEPT = "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html, */*"
-MAX_HEADLINES = 10
-FEDERAL_SLOTS = 5
-EUROPE_SLOTS = 2
+MAX_HEADLINES = 5
+FEDERAL_SLOTS = 2
+EUROPE_SLOTS = 1
 
 # Main Canadian news sources.
 DOMESTIC_FEEDS = (
@@ -456,7 +456,7 @@ def main() -> int:
     for item in ranked:
         add_item(item)
 
-    if len(selected) < 6:
+    if len(selected) < MAX_HEADLINES:
         for href, label in existing_unique_anchors(text):
             if href in seen_hrefs:
                 continue
