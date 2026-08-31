@@ -24,9 +24,9 @@ USER_AGENT = "CanadaAtWar-HourlyTick/1.0 (+https://brazilginga.neocities.org/Can
 FEEDS = (
     ("Global Politics", "https://globalnews.ca/politics/feed/"),
     ("Global Money", "https://globalnews.ca/money/feed/"),
-    ("CTV Politics", "https://www.ctvnews.ca/rss/ctvnews-ca-politics-public-rss-1.822302"),
-    ("CTV Autos", "https://www.ctvnews.ca/rss/autos/ctv-news-autos-1.867636"),
-    ("CTV Canada", "https://www.ctvnews.ca/rss/ctvnews-ca-canada-public-rss-1.822284"),
+    ("Global Canada", "https://globalnews.ca/canada/feed/"),
+    ("Global U.S.", "https://globalnews.ca/us-news/feed/"),
+    ("Global World", "https://globalnews.ca/world/feed/"),
     (
         "Global Affairs Canada",
         "https://api.io.canada.ca/io-server/gc/news/en/v2?atomtitle=Global+Affairs+Canada+news&dept=departmentofforeignaffairstradeanddevelopment&format=atom&orderBy=desc&pick=1000&publishedDate%3E=2015-01-01&sort=publishedDate",
@@ -178,10 +178,10 @@ def existing_unique_anchors(text: str) -> list[tuple[str, str]]:
         return []
     anchors = re.findall(r'<a href="([^"]+)">(.*?)</a>', match.group(1), re.S)
     out: list[tuple[str, str]] = []
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
     for href, label in anchors:
         label_plain = clean_text(label)
-        key = normalize_title(label_plain)
+        key = (href, normalize_title(label_plain))
         if key in seen:
             continue
         seen.add(key)
@@ -221,13 +221,15 @@ def main() -> int:
     ranked = sorted(dedup.values(), key=lambda x: (x.score, x.published), reverse=True)
 
     selected: list[tuple[str, str]] = []
-    seen_labels: set[str] = set()
+    seen_titles: set[str] = set()
+    seen_hrefs: set[str] = set()
     for item in ranked:
         label = f"{topic_label(item.title)} · {item.title} — {item.source}"
         key = normalize_title(item.title)
-        if key in seen_labels:
+        if key in seen_titles or item.link in seen_hrefs:
             continue
-        seen_labels.add(key)
+        seen_titles.add(key)
+        seen_hrefs.add(item.link)
         selected.append((item.link, label))
         if len(selected) >= 6:
             break
@@ -235,11 +237,14 @@ def main() -> int:
     # Fill any thin hour with the previous editorial ticker rather than inventing copy.
     if len(selected) < 5:
         for href, label in existing_unique_anchors(text):
-            key = normalize_title(label.split(" · ", 1)[-1])
-            if key in seen_labels:
+            if href in seen_hrefs:
+                continue
+            key = normalize_title(label.split(" · ", 1)[-1].split(" — ", 1)[0])
+            if key in seen_titles:
                 continue
             selected.append((href, label))
-            seen_labels.add(key)
+            seen_hrefs.add(href)
+            seen_titles.add(key)
             if len(selected) >= 6:
                 break
 
