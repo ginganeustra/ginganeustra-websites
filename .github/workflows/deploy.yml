@@ -73,6 +73,12 @@ jobs:
             done
           done
 
+      - name: Strip embedded metadata from publication images
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/strip_publication_image_metadata.py
+
       - name: Upload publication pages, images, verification files and sitemaps
         env:
           NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
