@@ -27,6 +27,8 @@ jobs:
           set -euo pipefail
           required=(
             'CANADA_AT_WAR_MASTHEAD_LOCK'
+            'PINNED_LEAD_LOCK'
+            'THE EMPIRE IN YOUR POCKET'
             'THE TICK'
             'tradingview-widget-container'
             'canada-at-war-goose-eagle-v3.jpg'
@@ -39,7 +41,7 @@ jobs:
           )
           for marker in "${required[@]}"; do
             if ! grep -Fq "$marker" Canada/index.html; then
-              echo "Canada at War masthead guard failed: missing $marker" >&2
+              echo "Canada at War masthead/lead guard failed: missing $marker" >&2
               exit 1
             fi
           done
@@ -169,7 +171,8 @@ jobs:
             fi
           }
 
-          check_page 'https://brazilginga.neocities.org/Canada/' 'They already wrote the rules: the 1989 Canada–U.S. agreement behind the Lake Ontario fight'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'THE EMPIRE IN YOUR POCKET'
+          check_page 'https://brazilginga.neocities.org/Canada/digital-sovereignty-american-tech-hegemony-canada-august-30-2026.html' 'The dependency does the work.'
           check_page 'https://brazilginga.neocities.org/Canada/canada-us-1989-shared-geographic-names-agreement-lake-ontario-august-30-2026.html' 'There is a rulebook for this.'
           check_page 'https://brazilginga.neocities.org/Canada/google-maps-lake-ontario-lake-america-august-30-2026.html' 'MapQuest proves there was a choice'
           check_page 'https://brazilginga.neocities.org/Canada/google-maps-lake-ontario-lake-america-august-30-2026.html' 'lake-maps-headshot-august-30-2026.jpg'
