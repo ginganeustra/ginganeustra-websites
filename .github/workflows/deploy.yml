@@ -76,7 +76,7 @@ jobs:
             'id="must-read-library"'
             'Click a book spine to open its essay.'
             'Must Reads from Other Sources'
-            'BESSENT ESCALATES — THEN SITS DOWN WITH CANADA'
+            'MEET ANDY HARRIS, THE CONGRESSMAN WHO WANTS ALBERTA AS THE 51ST STATE'
             '.word{order:2;'
           )
           for marker in "${required[@]}"; do
@@ -187,7 +187,8 @@ jobs:
           )"
           check_page 'https://brazilginga.neocities.org/Argentina/' 'Messi closes the door: his Argentina career is over'
           check_page 'https://brazilginga.neocities.org/Argentina/lionel-messi-retires-argentina-international-football-august-31-2026.html' 'The No. 10 shirt will be worn again. The era attached to it is finished.'
-          check_page 'https://brazilginga.neocities.org/Canada/' 'BESSENT ESCALATES — THEN SITS DOWN WITH CANADA'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'MEET ANDY HARRIS, THE CONGRESSMAN WHO WANTS ALBERTA AS THE 51ST STATE'
+          check_page 'https://brazilginga.neocities.org/Canada/andy-harris-alberta-51st-state-trump-august-31-2026.html' 'Andy Harris'
           check_page 'https://brazilginga.neocities.org/Canada/' 'Canada may not have been negotiating with one Washington.'
           check_page 'https://brazilginga.neocities.org/Canada/' 'The 5 per cent problem is a small-business crisis.'
           check_page 'https://brazilginga.neocities.org/Canada/' 'The boycott is becoming a habit.'
