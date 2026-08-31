@@ -67,7 +67,6 @@ jobs:
           required=(
             'CANADA_AT_WAR_MASTHEAD_LOCK'
             'PINNED_LEAD_LOCK'
-            'THE EMPIRE IN YOUR POCKET'
             'THE TICK'
             'tradingview-widget-container'
             'canada-at-war-goose-eagle-v3.jpg'
@@ -80,7 +79,7 @@ jobs:
           )
           for marker in "${required[@]}"; do
             if ! grep -Fq "$marker" Canada/index.html; then
-              echo "Canada at War masthead/lead guard failed: missing $marker" >&2
+              echo "Canada at War masthead/ticker guard failed: missing $marker" >&2
               exit 1
             fi
           done
@@ -156,7 +155,10 @@ jobs:
           print(f"{int(m.group(1).replace(',','')):,}")
           PY
           )"
-          check_page 'https://brazilginga.neocities.org/Canada/' 'THE EMPIRE IN YOUR POCKET'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'TRUMP CALLED APPLE'
+          check_page 'https://brazilginga.neocities.org/Canada/trump-pressures-apple-lake-ontario-lake-america-august-31-2026.html' 'The line that matters:'
+          check_page 'https://brazilginga.neocities.org/Canada/toyota-honda-canada-50-percent-auto-tariff-august-31-2026.html' 'The strategic contradiction:'
+          check_page 'https://brazilginga.neocities.org/Canada/anita-anand-eu-gymnich-carney-europe-august-31-2026.html' 'Why this is new:'
           check_page 'https://brazilginga.neocities.org/Canada/' 'Washington wants the world to put up more walls against China'
           check_page 'https://brazilginga.neocities.org/Canada/bessent-g20-china-trade-barriers-canada-august-31-2026.html' 'The rest of the world is going to have to examine their terms of trade with China'
           check_page 'https://brazilginga.neocities.org/Canada/' "${petition_count} validated signatures"
