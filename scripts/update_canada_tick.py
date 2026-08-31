@@ -118,7 +118,17 @@ def item_link(node: ET.Element) -> str:
     return ""
 
 
+def suppress_title(title: str) -> bool:
+    t = f" {title.lower()} "
+    is_gm = re.search(r"\bgm\b", t) is not None or "general motors" in t
+    if is_gm and not any(x in t for x in ("tariff", "trade", "trump", "u.s.", "united states", "washington")):
+        return True
+    return False
+
+
 def score_item(title: str, summary: str, source: str) -> int:
+    if suppress_title(title):
+        return -1
     text = f" {title} {summary} ".lower()
     if not any(anchor in text for anchor in CANADA_ANCHORS):
         return -1
@@ -191,6 +201,8 @@ def existing_unique_anchors(text: str) -> list[tuple[str, str]]:
     seen: set[tuple[str, str]] = set()
     for href, label in anchors:
         label_plain = clean_text(label)
+        if suppress_title(label_plain):
+            continue
         key = (href, normalize_title(label_plain))
         if key in seen:
             continue
