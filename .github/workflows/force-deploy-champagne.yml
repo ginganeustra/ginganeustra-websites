@@ -1,0 +1,55 @@
+name: Force deploy Champagne G20
+on:
+  push:
+    paths:
+      - '.force-deploy-champagne-trigger'
+permissions:
+  contents: read
+jobs:
+  deploy-champagne:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify repo source before upload
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'CHAMPAGNE TAKES CANADA’S DIVERSIFICATION CASE TO THE G20' Canada/index.html
+          grep -Fq 'champagne-g20-asheville-shared-prosperity-august-31-2026.html' Canada/index.html
+          grep -Fq 'Champagne takes Canada’s diversification case to the G20.' Canada/champagne-g20-asheville-shared-prosperity-august-31-2026.html
+          grep -Fq 'CANADA_AT_WAR_MASTHEAD_LOCK' Canada/index.html
+          grep -Fq 'THE TICK' Canada/index.html
+          grep -Fq 'petition-paint-mix' Canada/index.html
+          grep -Fq 'How Lying Works' Canada/index.html
+      - name: Upload Champagne article and homepage directly to Neocities
+        env:
+          NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]]
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F 'Canada/champagne-g20-asheville-shared-prosperity-august-31-2026.html=@Canada/champagne-g20-asheville-shared-prosperity-august-31-2026.html' https://neocities.org/api/upload
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F 'Canada/index.html=@Canada/index.html' https://neocities.org/api/upload
+      - name: Verify public Canada at War pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify() {
+            local url="$1" marker="$2" tmp code
+            tmp="$(mktemp)"
+            for attempt in 1 2 3 4 5 6; do
+              code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "${url}?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+              if [[ "$code" == "200" ]] && grep -Fq "$marker" "$tmp"; then
+                echo "VERIFIED LIVE HTTP 200: $url :: $marker"
+                rm -f "$tmp"
+                return 0
+              fi
+              sleep 2
+            done
+            echo "Verification failed: $url :: $marker" >&2
+            cat "$tmp" >&2 || true
+            rm -f "$tmp"
+            return 1
+          }
+          verify 'https://brazilginga.neocities.org/Canada/' 'CHAMPAGNE TAKES CANADA’S DIVERSIFICATION CASE TO THE G20'
+          verify 'https://brazilginga.neocities.org/Canada/champagne-g20-asheville-shared-prosperity-august-31-2026.html' 'Champagne takes Canada’s diversification case to the G20.'
