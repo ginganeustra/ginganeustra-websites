@@ -11,6 +11,8 @@ from pathlib import Path
 import re
 
 PAGE = Path("Canada/index.html")
+# USER-APPROVED THE TICK VISUAL SPEED — Aug. 31, 2026.
+# Preserve this 125 px/s setting unless the editor expressly asks to change it.
 PX_PER_SECOND = 125
 MARKER = "ticker-speed-controller"
 
