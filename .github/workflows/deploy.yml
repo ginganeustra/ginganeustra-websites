@@ -54,6 +54,13 @@ jobs:
             exit 1
           fi
 
+          # The Trump lead must retain its supplied supporting image.
+          if ! grep -Fq 'trump-headshot-v3-august-30-2026.jpg' \
+            Canada/trump-canadian-companies-move-us-august-30-2026.html; then
+            echo 'Trump article image guard failed: supplied headshot reference missing' >&2
+            exit 1
+          fi
+
           # The football editions must retain their complete magazine mastheads.
           for edition in Brazil Argentina; do
             for marker in 'publication-masthead' 'section-nav' 'wordmark-title'; do
@@ -136,8 +143,37 @@ jobs:
             rm -f "$tmp"
           }
 
+          check_image() {
+            local url="$1"
+            local tmp
+            local code
+            local magic
+            local bytes
+            local ok=0
+            tmp="$(mktemp)"
+            for attempt in 1 2 3 4 5; do
+              code="$(curl -L -sS -o "$tmp" -w '%{http_code}' \
+                "${url}?v=${short}&verify=${attempt}" || true)"
+              magic="$(od -An -tx1 -N2 "$tmp" | tr -d ' \n')"
+              bytes="$(wc -c < "$tmp" | tr -d ' ')"
+              if [[ "$code" == "200" ]] && [[ "$magic" == "ffd8" ]] && (( bytes > 4000 )); then
+                echo "Verified image HTTP 200: $url :: JPEG ${bytes} bytes"
+                ok=1
+                break
+              fi
+              echo "Image verification attempt $attempt failed for $url (HTTP $code; magic $magic; bytes $bytes)" >&2
+              sleep 2
+            done
+            rm -f "$tmp"
+            if (( ok == 0 )); then
+              echo "Neocities image verification failed for $url" >&2
+              exit 1
+            fi
+          }
+
           check_page 'https://brazilginga.neocities.org/Canada/' 'Trump tells Canadian companies: move to the United States'
-          check_page 'https://brazilginga.neocities.org/Canada/trump-canadian-companies-move-us-august-30-2026.html' 'The significance:'
+          check_page 'https://brazilginga.neocities.org/Canada/trump-canadian-companies-move-us-august-30-2026.html' 'trump-headshot-v3-august-30-2026.jpg'
+          check_image 'https://brazilginga.neocities.org/Canada/assets/trump-headshot-v3-august-30-2026.jpg'
           check_page 'https://brazilginga.neocities.org/Canada/abacus-liberals-ten-point-lead-trump-august-30-2026.html' 'The headline numbers:'
           check_page 'https://brazilginga.neocities.org/Canada/' 'socrates-how-lying-works.html'
           check_page 'https://brazilginga.neocities.org/Canada/how-lying-works-library.html' 'No article in this library requires a ChatGPT account'
