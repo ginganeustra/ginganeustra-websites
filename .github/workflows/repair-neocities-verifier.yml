@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Patch stale Canada publication checks
+      - name: Build patched Canada publication workflow
         shell: bash
         run: |
           set -euo pipefail
@@ -67,13 +67,14 @@ jobs:
 
           git diff --check
           git diff -- .github/workflows/deploy.yml
+          cp .github/workflows/deploy.yml scripts/deploy-fixed.yml.txt
 
-      - name: Commit verifier repair
+      - name: Publish patched workflow blob for connected GitHub commit
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'canada-at-war-publisher[bot]'
           git config user.email 'canada-at-war-publisher[bot]@users.noreply.github.com'
-          git add .github/workflows/deploy.yml
-          git commit -m 'Fix Neocities verification for corrected Canada lead [skip ci]'
+          git add scripts/deploy-fixed.yml.txt
+          git commit -m 'Stage corrected Neocities workflow blob [skip ci]'
           git push origin HEAD:main
