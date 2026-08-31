@@ -130,7 +130,59 @@ jobs:
           done
           (( failed == 0 ))
 
-      - name: Verify Canada at War pages
+      - name: Restore newest hourly trade-war ticker before verification
+        env:
+          NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]] || exit 1
+          git fetch origin main
+          git show origin/main:Canada/index.html > /tmp/latest-canada-index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          from html import unescape
+
+          current_path = Path('Canada/index.html')
+          current = current_path.read_text(encoding='utf-8')
+          latest = Path('/tmp/latest-canada-index.html').read_text(encoding='utf-8')
+
+          block_re = re.compile(r'<!-- HOURLY_TICK_AUTO_BEGIN -->.*?<!-- HOURLY_TICK_AUTO_END -->', re.S)
+          latest_match = block_re.search(latest)
+          if not latest_match:
+              raise SystemExit('Latest main branch has no protected hourly ticker block')
+          latest_block = latest_match.group(0)
+
+          labels = re.findall(r'<a\b[^>]*>(.*?)</a>', latest_block, re.S)
+          if not labels:
+              raise SystemExit('Latest hourly ticker contains no headlines')
+          allowed = ('TRADE WAR · ', 'AUTO TARIFF · ', 'EUROPE TRADE · ', 'CHINA TRADE · ', 'METALS TARIFF · ')
+          for raw in labels:
+              plain = re.sub(r'<[^>]+>', ' ', unescape(raw))
+              plain = re.sub(r'\s+', ' ', plain).strip()
+              if not plain.startswith(allowed):
+                  raise SystemExit(f'Non-trade-war ticker label blocked from deployment: {plain}')
+
+          current, n = block_re.subn(lambda _: latest_block, current, count=1)
+          if n != 1:
+              raise SystemExit('Could not replace ticker block in deployment copy')
+
+          label_match = re.search(r'<span class="tick-label">THE TICK(?: · CHECKED [^<]+)?</span>', latest)
+          if not label_match:
+              raise SystemExit('Latest main branch has no ticker check-time label')
+          current, n = re.subn(r'<span class="tick-label">THE TICK(?: · CHECKED [^<]+)?</span>', label_match.group(0), current, count=1)
+          if n != 1:
+              raise SystemExit('Could not replace ticker timestamp in deployment copy')
+
+          current_path.write_text(current, encoding='utf-8')
+          PY
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors \
+            -H "Authorization: Bearer $NEOCITIES_API_KEY" \
+            -F 'Canada/index.html=@Canada/index.html' \
+            https://neocities.org/api/upload
+
+      - name: Verify publication pages
         shell: bash
         run: |
           set -euo pipefail
@@ -155,6 +207,8 @@ jobs:
           print(f"{int(m.group(1).replace(',','')):,}")
           PY
           )"
+          check_page 'https://brazilginga.neocities.org/Argentina/' 'Messi closes the door: his Argentina career is over'
+          check_page 'https://brazilginga.neocities.org/Argentina/lionel-messi-retires-argentina-international-football-august-31-2026.html' 'The No. 10 shirt will be worn again. The era attached to it is finished.'
           check_page 'https://brazilginga.neocities.org/Canada/' 'TRUMP CALLED APPLE'
           check_page 'https://brazilginga.neocities.org/Canada/trump-pressures-apple-lake-ontario-lake-america-august-31-2026.html' 'The line that matters:'
           check_page 'https://brazilginga.neocities.org/Canada/toyota-honda-canada-50-percent-auto-tariff-august-31-2026.html' 'The strategic contradiction:'
