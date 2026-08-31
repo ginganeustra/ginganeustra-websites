@@ -24,13 +24,14 @@ from zoneinfo import ZoneInfo
 
 PAGE = Path("Canada/index.html")
 ET_ZONE = ZoneInfo("America/Toronto")
-USER_AGENT = "Mozilla/5.0 (compatible; CanadaAtWar-HourlyTick/1.3; +https://brazilginga.neocities.org/Canada/)"
+USER_AGENT = "Mozilla/5.0 (compatible; CanadaAtWar-HourlyTick/1.4; +https://brazilginga.neocities.org/Canada/)"
 ACCEPT = "application/rss+xml, application/atom+xml, application/xml, text/xml, */*"
 
-# Original tight source set.
+# Original tight source set. CBC is still CBC; only its CBC-owned delivery host
+# is changed from www.cbc.ca/webfeed to rss.cbc.ca to avoid runner timeouts.
 DOMESTIC_FEEDS = (
-    ("CBC Politics", "https://www.cbc.ca/webfeed/rss/rss-politics"),
-    ("CBC Business", "https://www.cbc.ca/webfeed/rss/rss-business"),
+    ("CBC Politics", "https://rss.cbc.ca/lineup/politics.xml"),
+    ("CBC Business", "https://rss.cbc.ca/lineup/business.xml"),
     ("Global Politics", "https://globalnews.ca/politics/feed/"),
     ("Global Money", "https://globalnews.ca/money/feed/"),
     (
@@ -41,8 +42,8 @@ DOMESTIC_FEEDS = (
 
 # Separate Europe lane. These feeds do not bypass the Canada-at-War filter.
 EUROPE_FEEDS = (
-    ("European Parliament Delegations", "https://www.europarl.europa.eu/rss/doc/last-news-delegations/en.xml"),
-    ("European Parliament Press", "https://www.europarl.europa.eu/rss/doc/press-releases/en.xml"),
+    ("European Parliament Foreign Affairs", "https://www.europarl.europa.eu/rss/committee/afet/en.xml"),
+    ("European Commission Trade", "https://policy.trade.ec.europa.eu/node/2/rss_en"),
     ("EU Council Press", "https://www.consilium.europa.eu/en/rss/pressreleases.ashx"),
     ("POLITICO Europe", "https://www.politico.eu/feed/"),
 )
@@ -151,7 +152,7 @@ def score_item(title: str, summary: str, source: str, lane: str) -> int:
     if source == "Global Affairs Canada":
         score += 2
     if lane == "europe":
-        score += 2  # tie-break only after the anti-dilution gate passes
+        score += 2
     if any(x in text for x in ("tariff", "trade", "sovereign", "norad", "f-35", "gripen", "ceta")):
         score += 3
     return score
@@ -164,8 +165,6 @@ def urllib_fetch(url: str) -> bytes:
 
 
 def curl_fetch(url: str) -> bytes:
-    # HTTP/1.1 is intentional: CBC intermittently returned curl HTTP/2 error 92
-    # from GitHub-hosted runners while the same RSS endpoint remained healthy.
     cmd = [
         "curl", "--http1.1", "--fail", "--silent", "--show-error", "--location", "--compressed",
         "--retry", "1", "--retry-delay", "1", "--connect-timeout", "5", "--max-time", "12",
@@ -178,7 +177,6 @@ def curl_fetch(url: str) -> bytes:
 
 
 def fetch_bytes(url: str) -> bytes:
-    """Try two transports for the same source, with strict time bounds."""
     methods = (curl_fetch, urllib_fetch) if "cbc.ca" in url else (urllib_fetch, curl_fetch)
     errors: list[str] = []
     for method in methods:
@@ -236,9 +234,13 @@ def existing_unique_anchors(text: str) -> list[tuple[str, str]]:
         return []
     out: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
+    approved_sources = (
+        "CBC Politics", "CBC Business", "Global Politics", "Global Money", "Global Affairs Canada",
+        "European Parliament Foreign Affairs", "European Commission Trade", "EU Council Press", "POLITICO Europe",
+    )
     for href, label in re.findall(r'<a href="([^"]+)">(.*?)</a>', match.group(1), re.S):
         plain = clean_text(label)
-        if suppress_title(plain):
+        if suppress_title(plain) or not any(source in plain for source in approved_sources):
             continue
         key = (href, normalize_title(plain))
         if key not in seen:
@@ -261,7 +263,6 @@ def main() -> int:
     specs = [(source, url, "domestic") for source, url in DOMESTIC_FEEDS]
     specs += [(source, url, "europe") for source, url in EUROPE_FEEDS]
 
-    # One slow publisher must never delay the rest of the hourly sweep.
     with ThreadPoolExecutor(max_workers=len(specs)) as pool:
         futures = {pool.submit(fetch_feed, source, url, lane): (source, lane) for source, url, lane in specs}
         for future in as_completed(futures):
@@ -301,13 +302,12 @@ def main() -> int:
         seen_titles.add(key)
         seen_hrefs.add(item.link)
 
-    # Reserve up to two slots only when Europe itself has qualifying Canada-at-War material.
     for item in europe_ranked[:2]:
         add_item(item)
     for item in ranked:
         add_item(item)
 
-    # Prefer a relevant older item to irrelevant filler when the live filtered set is thin.
+    # Do not fill the ticker with sources outside the approved set merely to reach a quota.
     if len(selected) < 5:
         for href, label in existing_unique_anchors(text):
             if href in seen_hrefs:
@@ -322,7 +322,7 @@ def main() -> int:
                 break
 
     if not selected:
-        raise SystemExit("No relevant ticker items and no existing ticker fallback; refusing to rewrite THE TICK")
+        raise SystemExit("No relevant ticker items and no approved existing fallback; refusing to rewrite THE TICK")
 
     one_pass = "".join(build_anchor(href, label) for href, label in selected)
     track = '<div class="ticker-track"><!-- HOURLY_TICK_AUTO_BEGIN -->' + one_pass + one_pass + '<!-- HOURLY_TICK_AUTO_END --></div></div></div><div class="markets">'
@@ -346,7 +346,7 @@ def main() -> int:
         raise SystemExit("Ticker safety guard failed; missing: " + ", ".join(missing))
 
     PAGE.write_text(text, encoding="utf-8")
-    european_sources = ("European Parliament", "EU Council", "POLITICO Europe")
+    european_sources = ("European Parliament", "European Commission", "EU Council", "POLITICO Europe")
     europe_selected = sum(1 for _, label in selected if any(source in label for source in european_sources))
     print(f"THE TICK checked {checked}; core feeds {domestic_success}/{len(DOMESTIC_FEEDS)}; Europe feeds {europe_success}/{len(EUROPE_FEEDS)}; {len(selected)} headlines selected ({europe_selected} Europe-lane).")
     for href, label in selected:
