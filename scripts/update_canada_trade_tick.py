@@ -99,9 +99,31 @@ def trade_topic_label(title: str) -> str:
     return "TRADE WAR"
 
 
+def enforce_clean_public_tick_label() -> None:
+    """Never publish a clock time in THE TICK label.
+
+    The actual refresh time stays in workflow logs. The reader-facing masthead
+    simply says THE TICK, avoiding a false impression of minute-by-minute news.
+    """
+    text = tick.PAGE.read_text(encoding="utf-8")
+    text, count = re.subn(
+        r'<span class="tick-label">THE TICK(?: · CHECKED [^<]+)?</span>',
+        '<span class="tick-label">THE TICK</span>',
+        text,
+        count=1,
+    )
+    if count != 1:
+        raise SystemExit("Could not enforce clean THE TICK public label")
+    tick.PAGE.write_text(text, encoding="utf-8")
+
+
 tick.score_item = trade_score_item
 tick.existing_unique_anchors = trade_existing
 tick.topic_label = trade_topic_label
 
 if __name__ == "__main__":
-    raise SystemExit(tick.main())
+    result = tick.main()
+    if result:
+        raise SystemExit(result)
+    enforce_clean_public_tick_label()
+    raise SystemExit(0)
