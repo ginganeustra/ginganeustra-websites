@@ -8,7 +8,6 @@ on:
     paths:
       - '.github/workflows/hourly-tick.yml'
       - 'scripts/update_canada_tick.py'
-      - 'scripts/update_canada_trade_tick.py'
 
 permissions:
   contents: write
@@ -26,38 +25,29 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch and rebuild trade-war-only THE TICK
+      - name: Fetch and rebuild THE TICK
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/update_canada_trade_tick.py
+          python3 scripts/update_canada_tick.py
           python3 - <<'PY'
           from pathlib import Path
-          from html import unescape
           import re
 
           page = Path('Canada/index.html')
           text = page.read_text(encoding='utf-8')
 
-          if '<span class="tick-label">THE TICK</span>' not in text:
-              raise SystemExit('Reader-facing THE TICK label is not clean')
-          if re.search(r'<span class="tick-label">[^<]*CHECKED[^<]*</span>', text, re.I):
-              raise SystemExit('Reader-facing THE TICK label must not contain a refresh time')
+          # Reader-facing label stays simple; the refresh time is not displayed.
+          text, label_count = re.subn(
+              r'<span class="tick-label">THE TICK(?: · CHECKED [^<]+)?</span>',
+              '<span class="tick-label">THE TICK</span>',
+              text,
+              count=1,
+          )
+          if label_count != 1:
+              raise SystemExit('Could not normalize THE TICK label')
 
-          match = re.search(r'<!-- HOURLY_TICK_AUTO_BEGIN -->(.*?)<!-- HOURLY_TICK_AUTO_END -->', text, re.S)
-          if not match:
-              raise SystemExit('No protected hourly ticker block')
-          labels = re.findall(r'<a\b[^>]*>(.*?)</a>', match.group(1), re.S)
-          if not labels:
-              raise SystemExit('Trade-war ticker produced no headlines')
-          allowed = ('TRADE WAR · ', 'AUTO TARIFF · ', 'EUROPE TRADE · ', 'CHINA TRADE · ', 'METALS TARIFF · ')
-          for raw in labels:
-              plain = re.sub(r'<[^>]+>', ' ', unescape(raw))
-              plain = re.sub(r'\s+', ' ', plain).strip()
-              if not plain.startswith(allowed):
-                  raise SystemExit(f'Non-trade-war ticker label blocked: {plain}')
-
-          # Keep the slower, easier-to-read ticker speed already established.
+          # Keep the slower, readable speed regardless of headline count.
           text, speed_count = re.subn(
               r'animation:ticker\s+\d+(?:\.\d+)?s\s+linear\s+infinite',
               'animation:ticker 88s linear infinite',
@@ -66,10 +56,15 @@ jobs:
           )
           if speed_count != 1:
               raise SystemExit('Could not set THE TICK scroll speed')
+
+          match = re.search(r'<!-- HOURLY_TICK_AUTO_BEGIN -->(.*?)<!-- HOURLY_TICK_AUTO_END -->', text, re.S)
+          if not match or '<a ' not in match.group(1):
+              raise SystemExit('Hourly ticker produced no headlines')
+
           page.write_text(text, encoding='utf-8')
           PY
 
-      - name: Commit the checked ticker to main
+      - name: Commit the refreshed ticker to main
         shell: bash
         run: |
           set -euo pipefail
@@ -80,9 +75,7 @@ jobs:
           git config user.name 'canada-at-war-ticker[bot]'
           git config user.email 'canada-at-war-ticker[bot]@users.noreply.github.com'
           git add Canada/index.html
-          git commit -m 'Hourly trade-war THE TICK refresh [skip ci]'
-          # Other publication work can land while this hourly job is fetching feeds.
-          # Rebase the one-file ticker commit instead of failing on a non-fast-forward.
+          git commit -m 'Hourly Canada-at-War THE TICK refresh [skip ci]'
           git fetch origin main
           git rebase origin/main
           git push origin HEAD:main
@@ -120,4 +113,4 @@ jobs:
           done
           rm -f "$tmp"
           (( ok == 1 )) || { echo 'Hourly THE TICK upload did not verify on Neocities' >&2; exit 1; }
-          echo 'Hourly trade-war THE TICK is live and verified.'
+          echo 'Hourly THE TICK is live and verified.'
