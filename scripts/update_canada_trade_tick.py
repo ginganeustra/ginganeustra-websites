@@ -117,6 +117,13 @@ def enforce_clean_public_tick_label() -> None:
     tick.PAGE.write_text(text, encoding="utf-8")
 
 
+# The general federal-news lane hard-codes a FEDERAL label and guarantees slots,
+# which is incompatible with a trade-war-only ticker. Global Affairs Canada is
+# already in the curated domestic sources, so trade-specific official news can
+# still qualify without opening the door to unrelated federal announcements.
+tick.FEDERAL_FEEDS = ()
+tick.FEDERAL_SLOTS = 0
+
 tick.score_item = trade_score_item
 tick.existing_unique_anchors = trade_existing
 tick.topic_label = trade_topic_label
