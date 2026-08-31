@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Strip privacy/descriptive metadata from publication image files without changing pixels.
+"""Guard reader-facing publication copy, then strip image metadata without changing pixels.
 
-The sanitizer removes EXIF/GPS, XMP, IPTC/Photoshop, comments, timestamps and other
-non-rendering metadata from JPEG/PNG/WebP files. It preserves technical colour data
-needed for reliable rendering (for example ICC profiles and Adobe colour transform
-markers). It also sanitizes base64-embedded JPEG/PNG/WebP images inside SVG files.
+The reader-copy gate prevents internal/editor-to-owner status language from being
+published on the three homepages. For the two football magazines it also enforces
+that reader content starts immediately after the public update timestamp.
+
+The image sanitizer removes EXIF/GPS, XMP, IPTC/Photoshop, comments, timestamps and
+other non-rendering metadata from JPEG/PNG/WebP files. It preserves technical colour
+data needed for reliable rendering (for example ICC profiles and Adobe colour
+transform markers). It also sanitizes base64-embedded JPEG/PNG/WebP images inside SVG.
 """
 from __future__ import annotations
 
@@ -17,6 +21,71 @@ from pathlib import Path
 
 ROOTS = (Path("Brazil"), Path("Argentina"), Path("Canada"))
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".svg"}
+HOME_PAGES = (Path("Brazil/index.html"), Path("Argentina/index.html"), Path("Canada/index.html"))
+FOOTBALL_HOME_PAGES = (Path("Brazil/index.html"), Path("Argentina/index.html"))
+
+# These phrases are workflow/editor language, not reader-facing journalism.
+# The gate is intentionally narrow to avoid blocking legitimate article prose.
+INTERNAL_COPY_PHRASES = (
+    "as you asked",
+    "as requested",
+    "i’ve updated",
+    "i've updated",
+    "i have updated",
+    "i’ve added",
+    "i've added",
+    "i have added",
+    "i removed",
+    "i fixed",
+    "we did that",
+    "remain listed only as",
+    "remains listed only as",
+    "have been confirmed final",
+)
+
+
+def guard_reader_copy() -> None:
+    failures: list[str] = []
+
+    for path in HOME_PAGES:
+        if not path.exists():
+            failures.append(f"missing publication homepage: {path}")
+            continue
+        text = path.read_text(encoding="utf-8")
+        lower = text.lower()
+        for phrase in INTERNAL_COPY_PHRASES:
+            if phrase in lower:
+                failures.append(f"{path}: internal/editor status phrase found: {phrase!r}")
+
+    # The football magazines have a public update timestamp followed immediately by
+    # journalism. A workflow/status card in this position is always an error.
+    for path in FOOTBALL_HOME_PAGES:
+        if not path.exists():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "READER_COPY_GATE" not in text:
+            failures.append(f"{path}: missing READER_COPY_GATE marker")
+            continue
+        match = re.search(r'<p class="meta">.*?</p>', text, flags=re.IGNORECASE | re.DOTALL)
+        if not match:
+            failures.append(f"{path}: missing public update timestamp")
+            continue
+        tail = text[match.end():]
+        # Permit whitespace and HTML comments used as non-rendering maintenance markers.
+        tail = re.sub(r'^\s*(?:<!--.*?-->\s*)*', '', tail, flags=re.DOTALL)
+        if not re.match(r'<h2(?:\s|>)', tail, flags=re.IGNORECASE):
+            failures.append(
+                f"{path}: reader content must start with an H2 immediately after the timestamp; "
+                "possible editor/status note detected"
+            )
+
+    if failures:
+        print("Reader-copy publication gate FAILED:", file=sys.stderr)
+        for failure in failures:
+            print(f" - {failure}", file=sys.stderr)
+        raise SystemExit(1)
+
+    print("Reader-copy publication gate passed for Brazil, Argentina and Canada homepages.")
 
 
 def clean_jpeg(data: bytes) -> bytes:
@@ -208,6 +277,8 @@ def clean_file(path: Path) -> bool:
 
 
 def main() -> int:
+    guard_reader_copy()
+
     seen = 0
     changed = 0
     for root in ROOTS:
