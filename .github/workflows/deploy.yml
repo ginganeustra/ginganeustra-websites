@@ -61,6 +61,13 @@ jobs:
             exit 1
           fi
 
+          # The new mapping analysis must retain the supplied headshot.
+          if ! grep -Fq 'lake-maps-headshot-august-30-2026.jpg' \
+            Canada/google-mapquest-who-owns-the-map-august-30-2026.html; then
+            echo 'Map analysis image guard failed: supplied headshot reference missing' >&2
+            exit 1
+          fi
+
           # The football editions must retain their complete magazine mastheads.
           for edition in Brazil Argentina; do
             for marker in 'publication-masthead' 'section-nav' 'wordmark-title'; do
@@ -96,8 +103,6 @@ jobs:
             exit 1
           fi
 
-          # Upload each file independently, so a transient failure cannot
-          # leave a newly linked article absent from the published site.
           failed=0
           for file in "${files[@]}"; do
             echo "Uploading $file"
@@ -171,12 +176,15 @@ jobs:
             fi
           }
 
-          check_page 'https://brazilginga.neocities.org/Canada/' 'Trump tells Canadian companies: move to the United States'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'The rules already existed. Canada and the United States wrote them in 1989.'
+          check_page 'https://brazilginga.neocities.org/Canada/lake-ontario-1989-naming-rules-august-30-2026.html' 'The rules already existed.'
+          check_page 'https://brazilginga.neocities.org/Canada/google-mapquest-who-owns-the-map-august-30-2026.html' 'MapQuest chose not to.'
+          check_page 'https://brazilginga.neocities.org/Canada/google-mapquest-who-owns-the-map-august-30-2026.html' 'lake-maps-headshot-august-30-2026.jpg'
           check_page 'https://brazilginga.neocities.org/Canada/trump-canadian-companies-move-us-august-30-2026.html' 'trump-headshot-v3-august-30-2026.jpg'
           check_image 'https://brazilginga.neocities.org/Canada/assets/trump-headshot-v3-august-30-2026.jpg'
           check_page 'https://brazilginga.neocities.org/Canada/abacus-liberals-ten-point-lead-trump-august-30-2026.html' 'The headline numbers:'
           check_page 'https://brazilginga.neocities.org/Canada/' 'socrates-how-lying-works.html'
-          check_page 'https://brazilginga.neocities.org/Canada/how-lying-works-library.html' 'No article in this library requires a ChatGPT account'
+          check_page 'https://brazilginga.neocities.org/Canada/how-lying-works-library.html' 'Every article below is part of Canada at War'
           check_page 'https://brazilginga.neocities.org/Canada/socrates-how-lying-works.html' 'The flattery of the soul'
           check_page 'https://brazilginga.neocities.org/Canada/plato-how-lying-works.html' 'The shadow on the wall'
           check_page 'https://brazilginga.neocities.org/Canada/aristotle-how-lying-works.html' 'How lies become habit'
