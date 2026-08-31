@@ -60,6 +60,17 @@ jobs:
           )
           if count != 1:
               raise SystemExit('Could not simplify THE TICK label')
+          # The ticker now carries roughly twice the copy it did originally.
+          # Keep the visual reading speed approximately unchanged by doubling
+          # the animation cycle instead of letting the longer track race by.
+          text, speed_count = re.subn(
+              r'animation:ticker\s+\d+(?:\.\d+)?s\s+linear\s+infinite',
+              'animation:ticker 88s linear infinite',
+              text,
+              count=1,
+          )
+          if speed_count != 1:
+              raise SystemExit('Could not set THE TICK scroll speed')
           page.write_text(text, encoding='utf-8')
           PY
 
@@ -104,6 +115,7 @@ jobs:
             if [[ "$code" == '200' ]] \
               && grep -Fq 'HOURLY_TICK_AUTO_BEGIN' "$tmp" \
               && grep -Fq '<span class="tick-label">THE TICK</span>' "$tmp" \
+              && grep -Fq 'animation:ticker 88s linear infinite' "$tmp" \
               && grep -Fq 'tradingview-widget-container' "$tmp"; then
               ok=1
               break
