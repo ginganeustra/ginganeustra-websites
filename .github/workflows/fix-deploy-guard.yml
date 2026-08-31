@@ -1,0 +1,32 @@
+name: Fix stale Canada lead deploy guard
+on:
+  push:
+    paths:
+      - '.fix-deploy-guard-trigger'
+permissions:
+  contents: write
+jobs:
+  fix-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace stale lead-specific guard
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/deploy.yml')
+          s=p.read_text()
+          old="'MEET ANDY HARRIS, THE CONGRESSMAN WHO WANTS ALBERTA AS THE 51ST STATE'"
+          new="'CHAMPAGNE TAKES CANADA’S DIVERSIFICATION CASE TO THE G20'"
+          if old not in s:
+              raise SystemExit('Old lead guard not found; refusing unsafe change')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - name: Commit guard fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/deploy.yml
+          git commit -m "Update Canada lead deploy guard for Champagne G20"
+          git push
