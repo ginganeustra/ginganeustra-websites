@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Refresh Canada at War's THE TICK from a tightly curated source set.
 
-Reliability problems are not solved by broadening the beat. The domestic lane
-keeps the original Canada at War sources. A separate Europe lane may contribute
-only items that independently pass the same Canada + issue relevance test.
+Reliability problems are never solved by broadening the beat. CBC remains CBC:
+if its RSS transport fails, the updater tries CBC's own Politics/Business pages.
+Europe is a separate lane and still must pass the same Canada + issue gate.
 
-This script edits only the ticker label and ticker-track region in Canada/index.html.
+Only the ticker label and ticker-track region in Canada/index.html are edited.
 """
 from __future__ import annotations
 
@@ -13,22 +13,22 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
-from html import escape
+from html import escape, unescape
 from pathlib import Path
 import re
 import subprocess
 import sys
 import urllib.request
+from urllib.parse import urljoin, urlparse
 import xml.etree.ElementTree as ET
 from zoneinfo import ZoneInfo
 
 PAGE = Path("Canada/index.html")
 ET_ZONE = ZoneInfo("America/Toronto")
-USER_AGENT = "Mozilla/5.0 (compatible; CanadaAtWar-HourlyTick/1.4; +https://brazilginga.neocities.org/Canada/)"
-ACCEPT = "application/rss+xml, application/atom+xml, application/xml, text/xml, */*"
+USER_AGENT = "Mozilla/5.0 (compatible; CanadaAtWar-HourlyTick/1.5; +https://brazilginga.neocities.org/Canada/)"
+ACCEPT = "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html, */*"
 
-# Original tight source set. CBC is still CBC; only its CBC-owned delivery host
-# is changed from www.cbc.ca/webfeed to rss.cbc.ca to avoid runner timeouts.
+# Original tight Canadian source set.
 DOMESTIC_FEEDS = (
     ("CBC Politics", "https://rss.cbc.ca/lineup/politics.xml"),
     ("CBC Business", "https://rss.cbc.ca/lineup/business.xml"),
@@ -39,13 +39,20 @@ DOMESTIC_FEEDS = (
         "https://api.io.canada.ca/io-server/gc/news/en/v2?atomtitle=Global+Affairs+Canada+news&dept=departmentofforeignaffairstradeanddevelopment&format=atom&orderBy=desc&pick=1000&publishedDate%3E=2015-01-01&sort=publishedDate",
     ),
 )
+CBC_PAGE_FALLBACKS = {
+    "CBC Politics": "https://www.cbc.ca/news/politics",
+    "CBC Business": "https://www.cbc.ca/news/business",
+}
 
-# Separate Europe lane. These feeds do not bypass the Canada-at-War filter.
+# European sources stay deliberately narrow. The EEAS Canada page is the EU's
+# own delegation-to-Canada newsroom, making it a particularly strong fit.
 EUROPE_FEEDS = (
-    ("European Parliament Foreign Affairs", "https://www.europarl.europa.eu/rss/committee/afet/en.xml"),
     ("European Commission Trade", "https://policy.trade.ec.europa.eu/node/2/rss_en"),
     ("EU Council Press", "https://www.consilium.europa.eu/en/rss/pressreleases.ashx"),
     ("POLITICO Europe", "https://www.politico.eu/feed/"),
+)
+EUROPE_PAGES = (
+    ("EEAS Canada", "https://www.eeas.europa.eu/canada_en"),
 )
 
 CANADA_ANCHORS = (
@@ -91,7 +98,7 @@ class Item:
 def clean_text(value: str | None) -> str:
     if not value:
         return ""
-    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", value)).strip()
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", unescape(value))).strip()
 
 
 def parse_date(value: str | None) -> datetime:
@@ -140,7 +147,7 @@ def score_item(title: str, summary: str, source: str, lane: str) -> int:
     if suppress_title(title):
         return -1
     text = f" {title} {summary} ".lower()
-    # Anti-dilution gate: BOTH Canada and a defined Canada-at-War theme are mandatory.
+    # Anti-dilution rule: Canada AND a defined Canada-at-War issue are mandatory.
     if not any(anchor in text for anchor in CANADA_ANCHORS):
         return -1
     if not any(term in text for term in CORE_TERMS):
@@ -152,27 +159,27 @@ def score_item(title: str, summary: str, source: str, lane: str) -> int:
     if source == "Global Affairs Canada":
         score += 2
     if lane == "europe":
-        score += 2
+        score += 2  # only after passing the anti-dilution test
     if any(x in text for x in ("tariff", "trade", "sovereign", "norad", "f-35", "gripen", "ceta")):
         score += 3
     return score
 
 
-def urllib_fetch(url: str) -> bytes:
+def urllib_fetch(url: str, timeout: int = 10) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": ACCEPT})
-    with urllib.request.urlopen(req, timeout=11) as response:
+    with urllib.request.urlopen(req, timeout=timeout) as response:
         return response.read()
 
 
 def curl_fetch(url: str) -> bytes:
     cmd = [
         "curl", "--http1.1", "--fail", "--silent", "--show-error", "--location", "--compressed",
-        "--retry", "1", "--retry-delay", "1", "--connect-timeout", "5", "--max-time", "12",
+        "--retry", "1", "--retry-delay", "1", "--connect-timeout", "4", "--max-time", "10",
         "--user-agent", USER_AGENT, "--header", f"Accept: {ACCEPT}", url,
     ]
-    completed = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=14)
+    completed = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12)
     if not completed.stdout:
-        raise RuntimeError("empty feed response")
+        raise RuntimeError("empty response")
     return completed.stdout
 
 
@@ -205,6 +212,90 @@ def fetch_feed(source: str, url: str, lane: str) -> list[Item]:
     return items
 
 
+def html_meta(html: str, name: str) -> str:
+    patterns = (
+        rf'<meta[^>]+(?:name|property)=["\']{re.escape(name)}["\'][^>]+content=["\']([^"\']+)',
+        rf'<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:name|property)=["\']{re.escape(name)}["\']',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, html, re.I | re.S)
+        if match:
+            return clean_text(match.group(1))
+    return ""
+
+
+def article_date(html: str) -> datetime | None:
+    patterns = (
+        r'"datePublished"\s*:\s*"([^"]+)"',
+        r'<meta[^>]+(?:property|name)=["\']article:published_time["\'][^>]+content=["\']([^"\']+)',
+        r'<time[^>]+datetime=["\']([^"\']+)',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, html, re.I | re.S)
+        if match:
+            return parse_date(unescape(match.group(1)))
+    return None
+
+
+def fetch_html_source(source: str, url: str, lane: str) -> list[Item]:
+    """Discover current items directly from an approved source's own page."""
+    landing = fetch_bytes(url).decode("utf-8", errors="replace")
+    links: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    host = urlparse(url).netloc.lower()
+
+    for href, body in re.findall(r'<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', landing, re.I | re.S):
+        title = clean_text(body)
+        absolute = urljoin(url, unescape(href)).split("#", 1)[0]
+        parsed = urlparse(absolute)
+        if not title or len(title) < 18 or len(title) > 220 or absolute in seen:
+            continue
+        if source.startswith("CBC"):
+            if "cbc.ca" not in parsed.netloc.lower() or "/news/" not in parsed.path:
+                continue
+        elif source == "EEAS Canada":
+            if "eeas.europa.eu" not in parsed.netloc.lower():
+                continue
+        elif parsed.netloc.lower() != host:
+            continue
+        # Titles must already show enough relevance to justify an article fetch.
+        if score_item(title, "", source, lane) < 0:
+            continue
+        seen.add(absolute)
+        links.append((absolute, title))
+        if len(links) >= 10:
+            break
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+    items: list[Item] = []
+    for absolute, title in links:
+        try:
+            article_html = urllib_fetch(absolute, timeout=7).decode("utf-8", errors="replace")
+        except Exception:
+            continue
+        published = article_date(article_html)
+        if published is None or published < cutoff:
+            continue
+        summary = html_meta(article_html, "description") or html_meta(article_html, "og:description")
+        score = score_item(title, summary, source, lane)
+        if score >= 0:
+            items.append(Item(title, absolute, summary, published, source, lane, score))
+    return items
+
+
+def fetch_domestic(source: str, url: str) -> tuple[list[Item], str | None]:
+    try:
+        return fetch_feed(source, url, "domestic"), None
+    except Exception as feed_exc:
+        fallback = CBC_PAGE_FALLBACKS.get(source)
+        if not fallback:
+            raise
+        try:
+            return fetch_html_source(source, fallback, "domestic"), f"RSS failed; used {source} page fallback: {feed_exc}"
+        except Exception as page_exc:
+            raise RuntimeError(f"RSS: {feed_exc} | page fallback: {page_exc}") from page_exc
+
+
 def normalize_title(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
 
@@ -232,12 +323,12 @@ def existing_unique_anchors(text: str) -> list[tuple[str, str]]:
     match = re.search(r'<div class="ticker-track">(.*?)</div></div></div><div class="markets">', text, re.S)
     if not match:
         return []
-    out: list[tuple[str, str]] = []
-    seen: set[tuple[str, str]] = set()
     approved_sources = (
         "CBC Politics", "CBC Business", "Global Politics", "Global Money", "Global Affairs Canada",
-        "European Parliament Foreign Affairs", "European Commission Trade", "EU Council Press", "POLITICO Europe",
+        "European Commission Trade", "EU Council Press", "POLITICO Europe", "EEAS Canada",
     )
+    out: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
     for href, label in re.findall(r'<a href="([^"]+)">(.*?)</a>', match.group(1), re.S):
         plain = clean_text(label)
         if suppress_title(plain) or not any(source in plain for source in approved_sources):
@@ -257,18 +348,34 @@ def main() -> int:
     text = PAGE.read_text(encoding="utf-8")
     candidates: list[Item] = []
     errors: list[str] = []
+    notes: list[str] = []
     domestic_success = 0
     europe_success = 0
 
-    specs = [(source, url, "domestic") for source, url in DOMESTIC_FEEDS]
-    specs += [(source, url, "europe") for source, url in EUROPE_FEEDS]
+    jobs: list[tuple[str, str, str, str]] = []
+    for source, url in DOMESTIC_FEEDS:
+        jobs.append((source, url, "domestic", "domestic"))
+    for source, url in EUROPE_FEEDS:
+        jobs.append((source, url, "europe", "feed"))
+    for source, url in EUROPE_PAGES:
+        jobs.append((source, url, "europe", "page"))
 
-    with ThreadPoolExecutor(max_workers=len(specs)) as pool:
-        futures = {pool.submit(fetch_feed, source, url, lane): (source, lane) for source, url, lane in specs}
+    def run_job(source: str, url: str, lane: str, kind: str):
+        if kind == "domestic":
+            return fetch_domestic(source, url)
+        if kind == "page":
+            return (fetch_html_source(source, url, lane), None)
+        return (fetch_feed(source, url, lane), None)
+
+    with ThreadPoolExecutor(max_workers=len(jobs)) as pool:
+        futures = {pool.submit(run_job, source, url, lane, kind): (source, lane) for source, url, lane, kind in jobs}
         for future in as_completed(futures):
             source, lane = futures[future]
             try:
-                candidates.extend(future.result())
+                items, note = future.result()
+                candidates.extend(items)
+                if note:
+                    notes.append(note)
                 if lane == "domestic":
                     domestic_success += 1
                 else:
@@ -279,7 +386,7 @@ def main() -> int:
     if domestic_success < 3:
         for error in errors:
             print(f"Feed error: {error}", file=sys.stderr)
-        raise SystemExit(f"Only {domestic_success}/{len(DOMESTIC_FEEDS)} core ticker feeds were reachable; refusing to rewrite THE TICK")
+        raise SystemExit(f"Only {domestic_success}/{len(DOMESTIC_FEEDS)} core sources were reachable; refusing to rewrite THE TICK")
 
     dedup: dict[str, Item] = {}
     for item in candidates:
@@ -302,12 +409,13 @@ def main() -> int:
         seen_titles.add(key)
         seen_hrefs.add(item.link)
 
+    # Up to two Europe-originated slots, but only if qualifying items actually exist.
     for item in europe_ranked[:2]:
         add_item(item)
     for item in ranked:
         add_item(item)
 
-    # Do not fill the ticker with sources outside the approved set merely to reach a quota.
+    # Never broaden the source list merely to fill six positions.
     if len(selected) < 5:
         for href, label in existing_unique_anchors(text):
             if href in seen_hrefs:
@@ -346,13 +454,15 @@ def main() -> int:
         raise SystemExit("Ticker safety guard failed; missing: " + ", ".join(missing))
 
     PAGE.write_text(text, encoding="utf-8")
-    european_sources = ("European Parliament", "European Commission", "EU Council", "POLITICO Europe")
+    european_sources = ("European Commission", "EU Council", "POLITICO Europe", "EEAS Canada")
     europe_selected = sum(1 for _, label in selected if any(source in label for source in european_sources))
-    print(f"THE TICK checked {checked}; core feeds {domestic_success}/{len(DOMESTIC_FEEDS)}; Europe feeds {europe_success}/{len(EUROPE_FEEDS)}; {len(selected)} headlines selected ({europe_selected} Europe-lane).")
+    print(f"THE TICK checked {checked}; core sources {domestic_success}/{len(DOMESTIC_FEEDS)}; Europe sources {europe_success}/{len(EUROPE_FEEDS)+len(EUROPE_PAGES)}; {len(selected)} headlines selected ({europe_selected} Europe-lane).")
     for href, label in selected:
         print(f"- {label} -> {href}")
+    for note in notes:
+        print(f"Source note: {note}")
     for error in errors:
-        print(f"Feed warning: {error}", file=sys.stderr)
+        print(f"Source warning: {error}", file=sys.stderr)
     return 0
 
 
