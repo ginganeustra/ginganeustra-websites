@@ -195,6 +195,8 @@ jobs:
           check_page 'https://brazilginga.neocities.org/Canada/' 'ticker-speed-controller'
           check_page 'https://brazilginga.neocities.org/Canada/' 'var pxPerSecond=125'
           check_page 'https://brazilginga.neocities.org/Canada/' 'Must Reads from Other Sources'
+          check_page 'https://brazilginga.neocities.org/Canada/' 'Danielle Smith takes her case to American television.'
+          check_page 'https://brazilginga.neocities.org/Canada/danielle-smith-american-television-tariff-free-trade-august-31-2026.html' 'Danielle Smith takes her case to American television.'
           check_page 'https://brazilginga.neocities.org/Canada/bessent-champagne-first-contact-trade-collapse-august-31-2026.html' 'Bessent and Champagne reopen the door.'
           check_page 'https://brazilginga.neocities.org/Canada/trump-trade-team-divisions-greer-lutnick-navarro-canada-august-31-2026.html' 'Canada may not have been negotiating with one Washington.'
           check_page 'https://brazilginga.neocities.org/Canada/canadian-small-businesses-50-percent-us-tariffs-august-31-2026.html' 'The 5 per cent problem is a small-business crisis.'
