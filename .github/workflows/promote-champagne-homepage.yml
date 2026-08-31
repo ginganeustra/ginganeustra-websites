@@ -1,0 +1,36 @@
+name: Promote Champagne G20 lead
+on:
+  push:
+    paths:
+      - '.champagne-homepage-trigger'
+permissions:
+  contents: write
+jobs:
+  patch-homepage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch only the Canada lead and updated timestamp
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('Canada/index.html')
+          s = p.read_text()
+          old = '''<section class="hero"><div class="hero-in"><div class="k">Lead · Sovereignty Watch · Alberta · U.S. Congress</div><h1>MEET ANDY HARRIS, THE CONGRESSMAN WHO WANTS ALBERTA AS THE 51ST STATE</h1><p>He is not a random television provocateur. The House Freedom Caucus chairman says the United States should make Alberta the 51st state if it separates from Canada, citing its “tremendous oil reserves,” and says Donald Trump is “taking advantage” of western Canadian alienation. We took a closer look at the man saying it.</p><a class="read" href="andy-harris-alberta-51st-state-trump-august-31-2026.html">Read the 1,000-word profile →</a><p class="meta">Published Aug. 31, 2026 · 5:05 p.m. ET</p></div></section>'''
+          new = '''<section class="hero"><div class="hero-in"><div class="k">Lead · Canada–U.S. trade · G20 Asheville</div><h1>CHAMPAGNE TAKES CANADA’S DIVERSIFICATION CASE TO THE G20</h1><p>Canada’s finance minister arrived in Asheville emphasizing collaboration, a level playing field, critical minerals, energy and potash — and preparing for the first senior Canada–U.S. face-to-face contact since the trade talks collapsed.</p><a class="read" href="champagne-g20-asheville-shared-prosperity-august-31-2026.html">Read the 500-word report →</a><p class="meta">Published Aug. 31, 2026 · 5:56 p.m. ET</p></div></section>'''
+          if old not in s:
+              raise SystemExit('Expected Andy Harris lead block not found; refusing unsafe rewrite')
+          s = s.replace(old, new, 1)
+          s = s.replace('UPDATED · AUGUST 31, 2026 · 5:15 P.M. ET','UPDATED · AUGUST 31, 2026 · 6:05 P.M. ET',1)
+          p.write_text(s)
+          PY
+      - name: Commit homepage promotion
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Canada/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Promote Champagne G20 report to Canada at War lead"
+          git push
