@@ -79,24 +79,20 @@ jobs:
           set -euo pipefail
           python3 scripts/strip_publication_image_metadata.py
 
-      - name: Remove unavailable Statue of Liberty image
+      - name: Remove broken Empire in Your Pocket placeholder
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
 
-          homepage = Path('Canada/index.html')
-          text = homepage.read_text(encoding='utf-8')
-          text = text.replace('<img src="assets/statue-of-liberty-petition-watch.jpg" alt="Editorial illustration of a dejected Statue of Liberty with her head in her hands and smoke rising from a cigarette">', '')
-          text = text.replace("b.src='assets/statue-of-liberty-petition-watch.jpg'", "b.src='assets/pete-hoekstra-official-portrait.jpg'")
-          homepage.write_text(text, encoding='utf-8')
-
-          petition = Path('Canada/pete-hoekstra-petition-watch-august-29-2026.html')
-          text = petition.read_text(encoding='utf-8')
-          text = text.replace('<img class="art" src="assets/statue-of-liberty-petition-watch.jpg" alt="Editorial illustration of a dejected Statue of Liberty with her head in her hands and smoke rising from a cigarette">', '')
-          text = text.replace('<li>Canada at War editorial illustration: Statue of Liberty, generated for this petition-watch feature.</li>', '')
-          petition.write_text(text, encoding='utf-8')
+          article = Path('Canada/digital-sovereignty-american-tech-hegemony-canada-august-30-2026.html')
+          text = article.read_text(encoding='utf-8')
+          broken = '<figure><img src="assets/digital-sovereignty-monument.svg" alt="Editorial illustration of monumental American statesmen looking exhausted and dispirited"><figcaption>Editorial illustration supplied to Canada at War.</figcaption></figure>'
+          text = text.replace(broken, '')
+          text = text.replace('grid-template-columns:1fr .7fr', 'grid-template-columns:1fr')
+          text = text.replace('https://brazilginga.neocities.org/Canada/assets/digital-sovereignty-monument.svg', 'https://brazilginga.neocities.org/Canada/assets/google-maps-lake-america-august-30-2026.jpeg')
+          article.write_text(text, encoding='utf-8')
           PY
 
       - name: Upload publication pages, images, verification files and sitemaps
