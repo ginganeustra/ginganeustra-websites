@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Refresh Canada at War's THE TICK from a tightly curated source set.
+"""Refresh Canada at War's THE TICK.
 
-Reliability problems are never solved by broadening the beat. CBC remains CBC:
-if its RSS transport fails, the updater tries CBC's own Politics/Business pages.
-Europe is a separate lane and still must pass the same Canada + issue gate.
+The ticker combines a current Canadian-news lane, an official Government of
+Canada announcements lane, and a narrow Europe lane. Official federal releases
+come from the Canada News Centre National News feed, so the ticker is not
+limited to Global Affairs Canada announcements.
 
-Only the ticker label and ticker-track region in Canada/index.html are edited.
+Only THE TICK label and ticker-track region in Canada/index.html are edited.
 """
 from __future__ import annotations
 
@@ -25,13 +26,17 @@ from zoneinfo import ZoneInfo
 
 PAGE = Path("Canada/index.html")
 ET_ZONE = ZoneInfo("America/Toronto")
-USER_AGENT = "Mozilla/5.0 (compatible; CanadaAtWar-HourlyTick/1.5; +https://brazilginga.neocities.org/Canada/)"
+USER_AGENT = "Mozilla/5.0 (compatible; CanadaAtWar-HourlyTick/1.6; +https://brazilginga.neocities.org/Canada/)"
 ACCEPT = "application/rss+xml, application/atom+xml, application/xml, text/xml, text/html, */*"
+MAX_HEADLINES = 10
+FEDERAL_SLOTS = 5
+EUROPE_SLOTS = 2
 
-# Original tight Canadian source set.
+# Main Canadian news sources.
 DOMESTIC_FEEDS = (
     ("CBC Politics", "https://rss.cbc.ca/lineup/politics.xml"),
     ("CBC Business", "https://rss.cbc.ca/lineup/business.xml"),
+    ("Global Canada", "https://globalnews.ca/canada/feed/"),
     ("Global Politics", "https://globalnews.ca/politics/feed/"),
     ("Global Money", "https://globalnews.ca/money/feed/"),
     (
@@ -39,13 +44,21 @@ DOMESTIC_FEEDS = (
         "https://api.io.canada.ca/io-server/gc/news/en/v2?atomtitle=Global+Affairs+Canada+news&dept=departmentofforeignaffairstradeanddevelopment&format=atom&orderBy=desc&pick=1000&publishedDate%3E=2015-01-01&sort=publishedDate",
     ),
 )
+
+# Official Canada News Centre feed across the federal government. This is the
+# source that restores announcements from departments beyond Global Affairs.
+FEDERAL_FEEDS = (
+    (
+        "Government of Canada",
+        "https://api.io.canada.ca/io-server/gc/news/en/v2?sort=publishedDate&orderBy=desc&pick=100&format=atom&atomtitle=National%20News",
+    ),
+)
+
 CBC_PAGE_FALLBACKS = {
     "CBC Politics": "https://www.cbc.ca/news/politics",
     "CBC Business": "https://www.cbc.ca/news/business",
 }
 
-# European sources stay deliberately narrow. The EEAS Canada page is the EU's
-# own delegation-to-Canada newsroom, making it a particularly strong fit.
 EUROPE_FEEDS = (
     ("European Commission Trade", "https://policy.trade.ec.europa.eu/node/2/rss_en"),
     ("EU Council Press", "https://www.consilium.europa.eu/en/rss/pressreleases.ashx"),
@@ -125,16 +138,21 @@ def child_text(node: ET.Element, names: tuple[str, ...]) -> str:
 
 
 def item_link(node: ET.Element) -> str:
+    alternate = ""
     for child in node.iter():
         if child.tag.rsplit("}", 1)[-1].lower() != "link":
             continue
         href = child.attrib.get("href", "").strip()
+        rel = child.attrib.get("rel", "").strip().lower()
         if href.startswith(("https://", "http://")):
-            return href
+            if rel in ("", "alternate"):
+                return href
+            if not alternate:
+                alternate = href
         text = (child.text or "").strip()
         if text.startswith(("https://", "http://")):
             return text
-    return ""
+    return alternate
 
 
 def suppress_title(title: str) -> bool:
@@ -147,7 +165,15 @@ def score_item(title: str, summary: str, source: str, lane: str) -> int:
     if suppress_title(title):
         return -1
     text = f" {title} {summary} ".lower()
-    # Anti-dilution rule: Canada AND a defined Canada-at-War issue are mandatory.
+
+    # Every current federal release is eligible. Its official-source status is
+    # the Canada anchor; issue terms simply raise its rank within that lane.
+    if lane == "federal" or source == "Government of Canada":
+        hits = sum(1 for term in ISSUE_TERMS if term in text)
+        strong = sum(1 for term in STRONG_TERMS if term in text)
+        return 20 + hits * 3 + strong * 4
+
+    # News and Europe lanes remain tightly tied to the Canada-at-War remit.
     if not any(anchor in text for anchor in CANADA_ANCHORS):
         return -1
     if not any(term in text for term in CORE_TERMS):
@@ -159,7 +185,7 @@ def score_item(title: str, summary: str, source: str, lane: str) -> int:
     if source == "Global Affairs Canada":
         score += 2
     if lane == "europe":
-        score += 2  # only after passing the anti-dilution test
+        score += 2
     if any(x in text for x in ("tariff", "trade", "sovereign", "norad", "f-35", "gripen", "ceta")):
         score += 3
     return score
@@ -199,7 +225,7 @@ def fetch_feed(source: str, url: str, lane: str) -> list[Item]:
     nodes = [n for n in root.iter() if n.tag.rsplit("}", 1)[-1].lower() in {"item", "entry"}]
     cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
     items: list[Item] = []
-    for node in nodes[:100]:
+    for node in nodes[:150]:
         title = clean_text(child_text(node, ("title",)))
         summary = clean_text(child_text(node, ("description", "summary", "content")))
         link = item_link(node)
@@ -238,7 +264,6 @@ def article_date(html: str) -> datetime | None:
 
 
 def fetch_html_source(source: str, url: str, lane: str) -> list[Item]:
-    """Discover current items directly from an approved source's own page."""
     landing = fetch_bytes(url).decode("utf-8", errors="replace")
     links: list[tuple[str, str]] = []
     seen: set[str] = set()
@@ -258,7 +283,6 @@ def fetch_html_source(source: str, url: str, lane: str) -> list[Item]:
                 continue
         elif parsed.netloc.lower() != host:
             continue
-        # Titles must already show enough relevance to justify an article fetch.
         if score_item(title, "", source, lane) < 0:
             continue
         seen.add(absolute)
@@ -324,8 +348,8 @@ def existing_unique_anchors(text: str) -> list[tuple[str, str]]:
     if not match:
         return []
     approved_sources = (
-        "CBC Politics", "CBC Business", "Global Politics", "Global Money", "Global Affairs Canada",
-        "European Commission Trade", "EU Council Press", "POLITICO Europe", "EEAS Canada",
+        "Government of Canada", "CBC Politics", "CBC Business", "Global Canada", "Global Politics", "Global Money",
+        "Global Affairs Canada", "European Commission Trade", "EU Council Press", "POLITICO Europe", "EEAS Canada",
     )
     out: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
@@ -350,11 +374,14 @@ def main() -> int:
     errors: list[str] = []
     notes: list[str] = []
     domestic_success = 0
+    federal_success = 0
     europe_success = 0
 
     jobs: list[tuple[str, str, str, str]] = []
     for source, url in DOMESTIC_FEEDS:
         jobs.append((source, url, "domestic", "domestic"))
+    for source, url in FEDERAL_FEEDS:
+        jobs.append((source, url, "federal", "feed"))
     for source, url in EUROPE_FEEDS:
         jobs.append((source, url, "europe", "feed"))
     for source, url in EUROPE_PAGES:
@@ -378,6 +405,8 @@ def main() -> int:
                     notes.append(note)
                 if lane == "domestic":
                     domestic_success += 1
+                elif lane == "federal":
+                    federal_success += 1
                 else:
                     europe_success += 1
             except Exception as exc:
@@ -386,7 +415,7 @@ def main() -> int:
     if domestic_success < 3:
         for error in errors:
             print(f"Feed error: {error}", file=sys.stderr)
-        raise SystemExit(f"Only {domestic_success}/{len(DOMESTIC_FEEDS)} core sources were reachable; refusing to rewrite THE TICK")
+        raise SystemExit(f"Only {domestic_success}/{len(DOMESTIC_FEEDS)} core Canadian sources were reachable; refusing to rewrite THE TICK")
 
     dedup: dict[str, Item] = {}
     for item in candidates:
@@ -394,7 +423,13 @@ def main() -> int:
         old = dedup.get(key)
         if old is None or (item.score, item.published) > (old.score, old.published):
             dedup[key] = item
+
     ranked = sorted(dedup.values(), key=lambda x: (x.score, x.published), reverse=True)
+    federal_ranked = sorted(
+        (item for item in dedup.values() if item.lane == "federal"),
+        key=lambda x: x.published,
+        reverse=True,
+    )
     europe_ranked = [item for item in ranked if item.lane == "europe"]
 
     selected: list[tuple[str, str]] = []
@@ -403,20 +438,25 @@ def main() -> int:
 
     def add_item(item: Item) -> None:
         key = normalize_title(item.title)
-        if key in seen_titles or item.link in seen_hrefs or len(selected) >= 6:
+        if key in seen_titles or item.link in seen_hrefs or len(selected) >= MAX_HEADLINES:
             return
-        selected.append((item.link, f"{topic_label(item.title)} · {item.title} — {item.source}"))
+        label = "FEDERAL" if item.lane == "federal" else topic_label(item.title)
+        selected.append((item.link, f"{label} · {item.title} — {item.source}"))
         seen_titles.add(key)
         seen_hrefs.add(item.link)
 
-    # Up to two Europe-originated slots, but only if qualifying items actually exist.
-    for item in europe_ranked[:2]:
+    # Federal announcements get a guaranteed place in every refresh. The newest
+    # official releases are chosen first so they cannot be pushed out by news scoring.
+    for item in federal_ranked[:FEDERAL_SLOTS]:
         add_item(item)
+
+    for item in europe_ranked[:EUROPE_SLOTS]:
+        add_item(item)
+
     for item in ranked:
         add_item(item)
 
-    # Never broaden the source list merely to fill six positions.
-    if len(selected) < 5:
+    if len(selected) < 6:
         for href, label in existing_unique_anchors(text):
             if href in seen_hrefs:
                 continue
@@ -426,11 +466,11 @@ def main() -> int:
             selected.append((href, label))
             seen_hrefs.add(href)
             seen_titles.add(key)
-            if len(selected) >= 6:
+            if len(selected) >= MAX_HEADLINES:
                 break
 
     if not selected:
-        raise SystemExit("No relevant ticker items and no approved existing fallback; refusing to rewrite THE TICK")
+        raise SystemExit("No ticker items and no approved existing fallback; refusing to rewrite THE TICK")
 
     one_pass = "".join(build_anchor(href, label) for href, label in selected)
     track = '<div class="ticker-track"><!-- HOURLY_TICK_AUTO_BEGIN -->' + one_pass + one_pass + '<!-- HOURLY_TICK_AUTO_END --></div></div></div><div class="markets">'
@@ -438,9 +478,13 @@ def main() -> int:
     if track_count != 1:
         raise SystemExit("Could not locate the protected THE TICK track in Canada/index.html")
 
-    checked = datetime.now(ET_ZONE).strftime("%H:%M ET")
-    label = f'<span class="tick-label">THE TICK · CHECKED {checked}</span>'
-    text, label_count = re.subn(r'<span class="tick-label">THE TICK(?: · CHECKED [^<]+)?</span>', label, text, count=1)
+    # Keep the public label clean. Refresh time belongs in logs, not in the masthead.
+    text, label_count = re.subn(
+        r'<span class="tick-label">THE TICK(?: · CHECKED [^<]+)?</span>',
+        '<span class="tick-label">THE TICK</span>',
+        text,
+        count=1,
+    )
     if label_count != 1:
         raise SystemExit("Could not locate THE TICK label in Canada/index.html")
 
@@ -454,9 +498,15 @@ def main() -> int:
         raise SystemExit("Ticker safety guard failed; missing: " + ", ".join(missing))
 
     PAGE.write_text(text, encoding="utf-8")
-    european_sources = ("European Commission", "EU Council", "POLITICO Europe", "EEAS Canada")
-    europe_selected = sum(1 for _, label in selected if any(source in label for source in european_sources))
-    print(f"THE TICK checked {checked}; core sources {domestic_success}/{len(DOMESTIC_FEEDS)}; Europe sources {europe_success}/{len(EUROPE_FEEDS)+len(EUROPE_PAGES)}; {len(selected)} headlines selected ({europe_selected} Europe-lane).")
+    checked = datetime.now(ET_ZONE).strftime("%H:%M ET")
+    federal_selected = sum(1 for _, label in selected if "— Government of Canada" in label)
+    europe_selected = sum(1 for _, label in selected if any(source in label for source in ("European Commission", "EU Council", "POLITICO Europe", "EEAS Canada")))
+    print(
+        f"THE TICK checked {checked}; Canadian sources {domestic_success}/{len(DOMESTIC_FEEDS)}; "
+        f"federal feed {federal_success}/{len(FEDERAL_FEEDS)}; Europe sources "
+        f"{europe_success}/{len(EUROPE_FEEDS)+len(EUROPE_PAGES)}; {len(selected)} headlines "
+        f"selected ({federal_selected} federal, {europe_selected} Europe-lane)."
+    )
     for href, label in selected:
         print(f"- {label} -> {href}")
     for note in notes:
