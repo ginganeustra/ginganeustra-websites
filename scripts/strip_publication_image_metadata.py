@@ -52,14 +52,16 @@ def repair_elephant_art() -> None:
             break
 
     if not valid_png(target):
-        print("No bundled raster converter succeeded; installing Pillow for one-file repair.")
+        print("No bundled raster converter succeeded; installing Pillow into an explicit target.")
         try:
+            pillow_dir = Path(".pillow-runtime").resolve()
             subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--quiet", "Pillow"],
+                [sys.executable, "-m", "pip", "install", "--quiet", "--target", str(pillow_dir), "Pillow"],
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
+            sys.path.insert(0, str(pillow_dir))
             from PIL import Image
             with Image.open(source) as image:
                 image.load()
