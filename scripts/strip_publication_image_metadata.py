@@ -8,6 +8,7 @@ legacy commit. New routine publications must already use direct JPG/PNG assets;
 from __future__ import annotations
 
 from pathlib import Path
+import re
 
 ROOTS = (Path("Brazil"), Path("Argentina"), Path("Canada"))
 ELEPHANT_STEM = "republican-elephant-tinfoil-sept-1-2026"
@@ -34,14 +35,31 @@ def prepare_elephant_art() -> None:
         text = text.replace(f"assets/{ELEPHANT_STEM}.png", f"assets/{ELEPHANT_STEM}.jpg")
         path.write_text(text, encoding="utf-8")
 
+    # The CBC story was the lead when this migration shim was introduced. It can
+    # later rotate into the ordinary story feed. Only resize the CBC image itself;
+    # never resize whichever unrelated image subsequently occupies the lead slot.
     htext = homepage.read_text(encoding="utf-8")
+    elephant_tag = re.search(
+        rf'<img\b[^>]*src="assets/{re.escape(ELEPHANT_STEM)}\.jpg"[^>]*>',
+        htext,
+        flags=re.IGNORECASE,
+    )
+    if not elephant_tag:
+        raise SystemExit("CBC homepage JPEG reference missing after repair")
+    tag = elephant_tag.group(0)
     old_home_style = 'style="display:block;width:100%;max-width:900px;height:auto;margin:18px 0 26px"'
     new_home_style = 'style="display:block;width:60%;max-width:540px;height:auto;margin:18px auto 26px"'
-    if old_home_style in htext:
-        htext = htext.replace(old_home_style, new_home_style, 1)
-    elif new_home_style not in htext:
-        raise SystemExit("CBC homepage lead image style changed; refusing to guess at 60% resize")
-    homepage.write_text(htext, encoding="utf-8")
+    if old_home_style in tag:
+        tag = tag.replace(old_home_style, new_home_style, 1)
+        htext = htext[:elephant_tag.start()] + tag + htext[elephant_tag.end():]
+        homepage.write_text(htext, encoding="utf-8")
+    elif new_home_style in tag:
+        pass
+    else:
+        # Once the story is in the standard story-feature feed, sizing is provided
+        # by the protected homepage CSS and no inline lead sizing is expected.
+        if 'class="story story-feature"' not in htext:
+            raise SystemExit("CBC homepage image style changed outside the standard story feed")
 
     atext = article.read_text(encoding="utf-8")
     old_article_css = '.lead-art{display:block;width:100%;height:auto;margin:0 0 28px}'
@@ -56,8 +74,6 @@ def prepare_elephant_art() -> None:
         text = path.read_text(encoding="utf-8")
         if f"assets/{ELEPHANT_STEM}.jpg" not in text:
             raise SystemExit(f"CBC lead JPEG reference missing after repair: {path}")
-    if 'width:60%;max-width:540px' not in homepage.read_text(encoding="utf-8"):
-        raise SystemExit("CBC homepage image did not resize to 60%")
     if '.lead-art{display:block;width:60%;max-width:540px' not in article.read_text(encoding="utf-8"):
         raise SystemExit("CBC article image did not resize to 60%")
 
