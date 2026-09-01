@@ -1,83 +1,37 @@
 #!/usr/bin/env python3
 """Compatibility wrapper for publication image sanitation.
 
-Before the normal metadata sanitizer runs, repair the CBC lead elephant artwork into
-a browser-safe PNG, make it 60% of its previous displayed size, and replace HTML
-references to raster images wrapped inside SVG data URIs with direct raster assets.
+Before the normal metadata sanitizer runs, switch the CBC lead elephant artwork to
+a verified direct JPEG and make it 60% of its previous displayed size. Other raster
+images wrapped inside SVG data URIs are also rewritten to direct JPEG assets.
 """
 from __future__ import annotations
 
 from pathlib import Path
-import shutil
-import subprocess
-import sys
 
 ROOTS = (Path("Brazil"), Path("Argentina"), Path("Canada"))
 ELEPHANT_STEM = "republican-elephant-tinfoil-sept-1-2026"
 
 
-def valid_png(path: Path) -> bool:
+def validate_jpeg(path: Path) -> None:
     if not path.exists():
-        return False
+        raise SystemExit(f"Missing CBC lead image: {path}")
     data = path.read_bytes()
-    return len(data) > 1000 and data.startswith(b"\x89PNG\r\n\x1a\n")
+    if len(data) < 5000 or not data.startswith(b"\xff\xd8") or not data.endswith(b"\xff\xd9"):
+        raise SystemExit(f"CBC lead image is not a complete JPEG: {path}")
 
 
-def repair_elephant_art() -> None:
+def prepare_elephant_art() -> None:
     root = Path("Canada")
-    source = root / "assets" / f"{ELEPHANT_STEM}.jpg"
-    target = root / "assets" / f"{ELEPHANT_STEM}.png"
-    if not source.exists():
-        raise SystemExit(f"Missing CBC lead source image: {source}")
-
-    commands: list[list[str]] = []
-    if shutil.which("ffmpeg"):
-        commands.append([
-            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-            "-i", str(source), "-frames:v", "1", "-vf", "format=rgb24", str(target),
-        ])
-    if shutil.which("magick"):
-        commands.append(["magick", str(source), "-strip", "-colorspace", "sRGB", str(target)])
-    if shutil.which("convert"):
-        commands.append(["convert", str(source), "-strip", "-colorspace", "sRGB", str(target)])
-
-    last_error = ""
-    for command in commands:
-        try:
-            subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except subprocess.CalledProcessError as exc:
-            last_error = exc.stderr.decode("utf-8", "replace")[-1200:]
-            continue
-        if valid_png(target):
-            break
-
-    if not valid_png(target):
-        print("No bundled raster converter succeeded; installing Pillow into an explicit target.")
-        try:
-            pillow_dir = Path(".pillow-runtime").resolve()
-            subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--quiet", "--target", str(pillow_dir), "Pillow"],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-            sys.path.insert(0, str(pillow_dir))
-            from PIL import Image
-            with Image.open(source) as image:
-                image.load()
-                image.convert("RGB").save(target, format="PNG", optimize=False)
-        except Exception as exc:
-            raise SystemExit(f"Could not create browser-safe CBC lead PNG. {last_error} Pillow error: {exc}")
-
-    if not valid_png(target):
-        raise SystemExit("CBC lead PNG failed signature/size validation after conversion")
+    image = root / "assets" / f"{ELEPHANT_STEM}.jpg"
+    validate_jpeg(image)
 
     homepage = root / "index.html"
     article = root / "republicans-revoke-cbc-radio-canada-accreditation-september-1-2026.html"
     for path in (homepage, article):
         text = path.read_text(encoding="utf-8")
-        text = text.replace(f"assets/{ELEPHANT_STEM}.svg", f"assets/{ELEPHANT_STEM}.png")
-        text = text.replace(f"assets/{ELEPHANT_STEM}.jpg", f"assets/{ELEPHANT_STEM}.png")
+        text = text.replace(f"assets/{ELEPHANT_STEM}.svg", f"assets/{ELEPHANT_STEM}.jpg")
+        text = text.replace(f"assets/{ELEPHANT_STEM}.png", f"assets/{ELEPHANT_STEM}.jpg")
         path.write_text(text, encoding="utf-8")
 
     htext = homepage.read_text(encoding="utf-8")
@@ -100,14 +54,14 @@ def repair_elephant_art() -> None:
 
     for path in (homepage, article):
         text = path.read_text(encoding="utf-8")
-        if f"assets/{ELEPHANT_STEM}.png" not in text:
-            raise SystemExit(f"CBC lead PNG reference missing after repair: {path}")
+        if f"assets/{ELEPHANT_STEM}.jpg" not in text:
+            raise SystemExit(f"CBC lead JPEG reference missing after repair: {path}")
     if 'width:60%;max-width:540px' not in homepage.read_text(encoding="utf-8"):
         raise SystemExit("CBC homepage image did not resize to 60%")
     if '.lead-art{display:block;width:60%;max-width:540px' not in article.read_text(encoding="utf-8"):
         raise SystemExit("CBC article image did not resize to 60%")
 
-    print(f"CBC lead art repaired to browser-safe PNG: {target}")
+    print(f"CBC lead art validated as complete JPEG: {image}")
     print("CBC lead art display size reduced to 60% on homepage and article page.")
 
 
@@ -147,7 +101,7 @@ def prefer_direct_raster_assets() -> None:
     print(f"Safari-safe direct raster compatibility rewrote {rewrites} HTML file(s).")
 
 
-repair_elephant_art()
+prepare_elephant_art()
 prefer_direct_raster_assets()
 
 from strip_publication_image_metadata_impl import main
