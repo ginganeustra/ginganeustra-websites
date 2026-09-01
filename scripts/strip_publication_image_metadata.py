@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Compatibility wrapper for publication image sanitation.
+"""Publication-image sanitation plus Canada at War preflight enforcement.
 
-Before the normal metadata sanitizer runs, switch the CBC lead elephant artwork to
-a verified direct JPEG and make it 60% of its previous displayed size. Other raster
-images wrapped inside SVG data URIs are also rewritten to direct JPEG assets.
+The CBC elephant repair remains as a migration shim for the September 1, 2026
+legacy commit. New routine publications must already use direct JPG/PNG assets;
+`validate_canada_publish.py` enforces that before upload.
 """
 from __future__ import annotations
 
@@ -61,8 +61,7 @@ def prepare_elephant_art() -> None:
     if '.lead-art{display:block;width:60%;max-width:540px' not in article.read_text(encoding="utf-8"):
         raise SystemExit("CBC article image did not resize to 60%")
 
-    print(f"CBC lead art validated as complete JPEG: {image}")
-    print("CBC lead art display size reduced to 60% on homepage and article page.")
+    print(f"CBC legacy lead art normalized to direct JPEG: {image}")
 
 
 def prefer_direct_raster_assets() -> None:
@@ -83,8 +82,8 @@ def prefer_direct_raster_assets() -> None:
                 continue
             wrappers.append((svg, jpg))
 
-        for html in root.rglob("*.html"):
-            text = html.read_text(encoding="utf-8")
+        for page in root.rglob("*.html"):
+            text = page.read_text(encoding="utf-8")
             original = text
             for svg, jpg in wrappers:
                 svg_rel = svg.relative_to(root).as_posix()
@@ -94,17 +93,26 @@ def prefer_direct_raster_assets() -> None:
                 jpg_abs = f"https://brazilginga.neocities.org/{root.name}/{jpg_rel}"
                 text = text.replace(svg_abs, jpg_abs)
             if text != original:
-                html.write_text(text, encoding="utf-8")
+                page.write_text(text, encoding="utf-8")
                 rewrites += 1
-                print(f"Safari-safe direct raster rewrite: {html}")
+                print(f"Legacy raster-wrapper migration: {page}")
 
-    print(f"Safari-safe direct raster compatibility rewrote {rewrites} HTML file(s).")
+    print(f"Legacy raster-wrapper migration rewrote {rewrites} HTML file(s).")
 
 
-prepare_elephant_art()
-prefer_direct_raster_assets()
+def main() -> int:
+    prepare_elephant_art()
+    prefer_direct_raster_assets()
 
-from strip_publication_image_metadata_impl import main
+    from strip_publication_image_metadata_impl import main as sanitize
+    result = sanitize()
+    if result:
+        return int(result)
+
+    from validate_canada_publish import main as validate_canada
+    validate_canada()
+    return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

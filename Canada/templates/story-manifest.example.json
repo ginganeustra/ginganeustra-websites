@@ -1,0 +1,28 @@
+{
+  "slug": "example-story-september-1-2026",
+  "title": "Example story",
+  "headline": "EXAMPLE STORY HEADLINE",
+  "description": "Short search description.",
+  "kicker": "Canada–U.S. trade · Analysis",
+  "deck": "One-sentence homepage/article deck.",
+  "published_banner": "PUBLISHED · SEPTEMBER 1, 2026 · 2:15 A.M. ET",
+  "published_display": "Published Sept. 1, 2026 · 2:15 a.m. ET",
+  "updated_home_banner": "UPDATED · SEPTEMBER 1, 2026 · 2:15 A.M. ET",
+  "lastmod_utc": "2026-09-01T06:15:00Z",
+  "image_source": "/absolute/path/to/editor-approved-image.jpg",
+  "image": "assets/example-story-september-1-2026.jpg",
+  "image_alt": "Accurate description of the editorial image",
+  "image_width_percent": 100,
+  "image_max_width": 900,
+  "body_html": [
+    "<p>First paragraph.</p>",
+    "<p>Second paragraph.</p>"
+  ],
+  "sources": [
+    {"label": "Primary source", "url": "https://example.com/source"}
+  ],
+  "lead": true,
+  "replace_lead_authorized": true,
+  "demote_previous_lead": true,
+  "read_label": "Read the report"
+}

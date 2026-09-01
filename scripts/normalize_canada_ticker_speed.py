@@ -6,13 +6,16 @@ animation duration therefore makes the apparent speed change whenever the
 headline set gets longer or shorter. This helper installs a tiny client-side
 controller that measures one pass of the track and sets the duration from a
 constant pixels-per-second target.
+
+During the full Neocities deployment this script also runs the dynamic Canada
+at War live-acceptance verifier after the initial upload. The hourly ticker job
+does not expose the Neocities API key to this step, so it remains ticker-only.
 """
 from pathlib import Path
+import os
 import re
 
 PAGE = Path("Canada/index.html")
-# USER-APPROVED THE TICK VISUAL SPEED — Aug. 31, 2026.
-# Preserve this 125 px/s setting unless the editor expressly asks to change it.
 PX_PER_SECOND = 125
 MARKER = "ticker-speed-controller"
 
@@ -21,8 +24,6 @@ SCRIPT = f'''<script id="{MARKER}">(function(){{var track=document.querySelector
 
 def main() -> int:
     text = PAGE.read_text(encoding="utf-8")
-
-    # Keep a sane fallback for the instant before JavaScript measures the track.
     text, fallback_count = re.subn(
         r"animation:ticker\s+\d+(?:\.\d+)?s\s+linear\s+infinite",
         "animation:ticker 39s linear infinite",
@@ -44,6 +45,11 @@ def main() -> int:
 
     PAGE.write_text(text, encoding="utf-8")
     print(f"THE TICK speed normalized to {PX_PER_SECOND} px/s based on measured track width.")
+
+    if os.environ.get("NEOCITIES_API_KEY"):
+        from verify_canada_live import main as verify_live
+        verify_live()
+
     return 0
 
 
