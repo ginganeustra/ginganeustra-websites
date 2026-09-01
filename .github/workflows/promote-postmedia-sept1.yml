@@ -1,0 +1,137 @@
+name: Promote Sept. 1 Postmedia package
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Canada/.postmedia-sept1-trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Promote media-watch lead, add Postmedia follow-up and library links
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          homepage = Path('Canada/index.html')
+          text = homepage.read_text(encoding='utf-8')
+
+          text, n = re.subn(
+              r'UPDATED · SEPTEMBER 1, 2026 · [0-9]{1,2}:[0-9]{2} [AP]\.M\. ET',
+              'UPDATED · SEPTEMBER 1, 2026 · 3:04 P.M. ET',
+              text,
+              count=1,
+          )
+          if n != 1:
+              raise SystemExit('Could not update Canada at War homepage timestamp safely')
+
+          hero = '''<!-- PINNED_LEAD_LOCK -->
+          <section class="hero"><div class="hero-in"><div class="k">Lead · Media Watch · National Post · Canada–U.S. trade</div><img src="assets/national-post-bessent-clean-september-1-2026.jpg" alt="National Post social-media promotion of its Scott Bessent story" style="display:block;width:100%;max-width:760px;height:auto;margin:18px 0 26px"><h1>WASHINGTON MOCKED CANADA. THE NATIONAL POST MADE THE HUMILIATION THE HEADLINE.</h1><p>Scott Bessent’s insult was news. The editorial choice was how to package it. Canada at War examines why that choice matters when U.S. officials are openly portraying Canada as weak, small and unable to resist.</p><a class="read" href="national-post-bessent-canada-humiliation-september-1-2026.html">Read the Media Watch analysis →</a><p class="meta">Published Sept. 1, 2026 · 3:04 p.m. ET</p></div></section>
+          <main class="wrap">'''
+          text, n = re.subn(
+              r'<!-- PINNED_LEAD_LOCK -->\s*<section class="hero">.*?</section>\s*<main class="wrap">',
+              hero,
+              text,
+              count=1,
+              flags=re.S,
+          )
+          if n != 1:
+              raise SystemExit('Could not replace the existing lead safely')
+
+          postmedia_card = '''
+          <!-- POSTMEDIA_REWRITE_CARD -->
+          <article class="story"><div class="k" style="color:#b51f2a">Analysis · Media ownership · Postmedia</div><h2>POSTMEDIA’S FINANCIAL PUZZLE: MONEY, OWNERSHIP AND MEDIA POWER</h2><p>The public record shows years of losses, debt restructuring and a major U.S. hedge-fund role in one of Canada’s most influential newspaper systems. It does not show that an owner ordered a particular headline. Both facts matter.</p><a class="read" href="postmedia-financial-puzzle-media-power-september-1-2026.html">Read the rewritten investigation →</a><p class="meta" style="color:#666">Published Sept. 1, 2026 · 3:04 p.m. ET</p></article>
+          <!-- REUTERS_POLL_RETAINED_CARD -->
+          <article class="story"><div class="k" style="color:#b51f2a">United States · Canada–U.S. trade · Reuters/Ipsos poll</div><h2>AMERICANS TELL TRUMP: COMPROMISE WITH CANADA</h2><p>The striking number in a new U.S. poll is not simply that Americans dislike the tariffs. It is that they reject the negotiating theory behind them: 68% want trade-offs with Canada, while 25% want Washington to take the hard line.</p><a class="read" href="reuters-ipsos-americans-oppose-trump-canada-tariffs-september-1-2026.html">Read the poll analysis →</a><p class="meta" style="color:#666">Published Sept. 1, 2026 · 11:21 a.m. ET</p></article>'''
+          if '<!-- POSTMEDIA_REWRITE_CARD -->' not in text:
+              text = text.replace('<main class="wrap">', '<main class="wrap">' + postmedia_card, 1)
+          else:
+              raise SystemExit('Postmedia homepage card already exists; refusing duplicate insertion')
+
+          library_start = '<section class="story how-lying-works" id="must-read-library"><div class="num">Must Read Library</div><h2>How Lying Works</h2><p>Click a book spine to open its essay.</p>'
+          library_new = library_start + '<p><strong>New in the library:</strong> <a href="postmedia-financial-puzzle-media-power-september-1-2026.html">Postmedia’s financial puzzle: money, ownership and media power →</a></p>'
+          if library_start not in text:
+              raise SystemExit('Must Read Library insertion point changed')
+          text = text.replace(library_start, library_new, 1)
+
+          required = [
+              'CANADA_AT_WAR_MASTHEAD_LOCK', 'THE TICK', 'tradingview-widget-container',
+              'canada-at-war-goose-eagle-v3.jpg', 'petition-paint-mix',
+              'MEET ANDY HARRIS, THE CONGRESSMAN WHO WANTS ALBERTA AS THE 51ST STATE',
+              'WASHINGTON MOCKED CANADA. THE NATIONAL POST MADE THE HUMILIATION THE HEADLINE.',
+              'POSTMEDIA’S FINANCIAL PUZZLE: MONEY, OWNERSHIP AND MEDIA POWER',
+              'postmedia-financial-puzzle-media-power-september-1-2026.html',
+          ]
+          for marker in required:
+              if marker not in text:
+                  raise SystemExit(f'Homepage safety check failed: missing {marker}')
+          homepage.write_text(text, encoding='utf-8')
+
+          new_urls = [
+              'https://brazilginga.neocities.org/Canada/national-post-bessent-canada-humiliation-september-1-2026.html',
+              'https://brazilginga.neocities.org/Canada/postmedia-financial-puzzle-media-power-september-1-2026.html',
+          ]
+          for fname in ['Canada/sitemap.xml', 'sitemap.xml']:
+              p = Path(fname)
+              s = p.read_text(encoding='utf-8')
+              for url in new_urls:
+                  if url not in s:
+                      entry = f'  <url><loc>{url}</loc><lastmod>2026-09-01T19:04:00Z</lastmod></url>\n'
+                      if '</urlset>' not in s:
+                          raise SystemExit(f'Missing closing urlset in {fname}')
+                      s = s.replace('</urlset>', entry + '</urlset>', 1)
+              p.write_text(s, encoding='utf-8')
+
+          news = Path('news-sitemap.xml')
+          s = news.read_text(encoding='utf-8')
+          news_items = [
+              (new_urls[0], 'Washington mocked Canada. The National Post made the humiliation the headline'),
+              (new_urls[1], "Postmedia's financial puzzle: money, ownership and media power"),
+          ]
+          for url, title in news_items:
+              if url not in s:
+                  entry = f'  <url><loc>{url}</loc><news:news><news:publication><news:name>Canada at War</news:name><news:language>en</news:language></news:publication><news:publication_date>2026-09-01T15:04:00-04:00</news:publication_date><news:title>{title}</news:title></news:news></url>\n'
+                  if '</urlset>' not in s:
+                      raise SystemExit('Missing closing urlset in news-sitemap.xml')
+                  s = s.replace('</urlset>', entry + '</urlset>', 1)
+          news.write_text(s, encoding='utf-8')
+          PY
+
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          for f in ['Canada/sitemap.xml','sitemap.xml','news-sitemap.xml']:
+              ET.parse(f)
+              print('XML OK:', f)
+          PY
+
+          grep -Fq 'WASHINGTON MOCKED CANADA. THE NATIONAL POST MADE THE HUMILIATION THE HEADLINE.' Canada/index.html
+          grep -Fq 'POSTMEDIA’S FINANCIAL PUZZLE: MONEY, OWNERSHIP AND MEDIA POWER' Canada/index.html
+          grep -Fq 'New in the library:' Canada/index.html
+          git diff --check
+
+      - name: Commit promoted package
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'canada-at-war-publisher[bot]'
+          git config user.email 'canada-at-war-publisher[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/sitemap.xml sitemap.xml news-sitemap.xml
+          if git diff --cached --quiet; then
+            echo 'No promotion changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Promote Postmedia media-watch package on Canada at War'
+          git push origin HEAD:main
