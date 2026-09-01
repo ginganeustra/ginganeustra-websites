@@ -1,0 +1,178 @@
+name: Canada Sept. 1 final package
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/canada-sept1-finalize.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch Canada homepage surgically
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          p=Path('Canada/index.html')
+          t=p.read_text(encoding='utf-8')
+          required=['CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','How Lying Works','id="must-read-library"','Must Reads from Other Sources']
+          for m in required:
+              if m not in t: raise SystemExit(f'missing protected marker before patch: {m}')
+
+          t,n=re.subn(r'<div class="top">UPDATED · SEPTEMBER 1, 2026 · [^<]+</div>', '<div class="top">UPDATED · SEPTEMBER 1, 2026 · 4:52 P.M. ET</div>', t, count=1)
+          if n!=1: raise SystemExit('could not update masthead time')
+
+          tick=[
+            ('https://www.reuters.com/world/canadas-carney-says-us-needs-start-being-serious-before-trade-talks-can-resume-2026-09-01/','TRADE WAR · Carney says Washington must get serious before Canada-U.S. talks can resume — Reuters'),
+            ('https://www.reuters.com/world/americas/carneys-liberals-win-3-special-elections-keep-majority-canada-confronts-trump-2026-09-01/','FEDERAL POLITICS · Liberals win all three byelections and keep their House majority — Reuters'),
+            ('https://www.reuters.com/world/us/majority-americans-oppose-trumps-new-canada-tariffs-renaming-lake-ontario-2026-09-01/','PUBLIC OPINION · Majority of Americans oppose new Canada tariffs and “Lake America” renaming — Reuters/Ipsos'),
+            ('https://www.canada.ca/en/global-affairs/news/2026/08/minister-anand-to-travel-to-ireland-for-meeting-of-european-union-foreign-affairs-ministers-gymnich.html','EUROPE · Anita Anand becomes first Canadian foreign minister to take part in an EU Gymnich — Global Affairs Canada'),
+            ('https://www.canada.ca/en/department-finance/news/2026/09/minister-champagne-to-make-an-affordability-announcement.html','FEDERAL · Champagne schedules affordability announcement for Wednesday — Department of Finance')
+          ]
+          anchors=''.join(f'<a href="{u}">{x}</a>' for u,x in tick)
+          block='<!-- HOURLY_TICK_AUTO_BEGIN -->'+anchors+anchors+'<!-- HOURLY_TICK_AUTO_END -->'
+          t,n=re.subn(r'<!-- HOURLY_TICK_AUTO_BEGIN -->.*?<!-- HOURLY_TICK_AUTO_END -->', block, t, count=1, flags=re.S)
+          if n!=1: raise SystemExit('could not replace ticker block')
+
+          hero='''<section class="hero"><div class="hero-in"><img src="assets/der-postillon-canadas-ass-map-september-1-2026.jpg" alt="Map of Canada and the United States labelled Canada and Canada’s Ass" style="display:block;width:100%;max-width:900px;height:auto;margin:0 0 24px"><div class="k">Lead · Humour · Media Watch · Germany</div><h1>GERMANY HAS A NAME FOR AMERICA’S NEW PLACE ON THE MAP. IT IS NOT DIPLOMATIC.</h1><p>Der Postillon turned North America’s map-renaming politics into a German punchline — and the map itself does most of the work.</p><a class="read" href="germany-der-postillon-canadas-ass-map-september-1-2026.html">Read the satire report →</a><p class="meta">Published Sept. 1, 2026 · 4:52 p.m. ET</p></div></section>'''
+          t,n=re.subn(r'(<!-- PINNED_LEAD_LOCK -->\s*)<section class="hero">.*?</section>', lambda m:m.group(1)+hero, t, count=1, flags=re.S)
+          if n!=1: raise SystemExit('could not replace lead hero')
+
+          pats=[
+            r'<article class="story"><div class="k"[^>]*>Europe · Foreign policy · Economic security</div>.*?href="anand-eu-gymnich-canada-europe-security-september-1-2026\.html".*?</article>\s*',
+            r'<article class="story"><div class="k"[^>]*>Europe · Foreign policy · Strategic diversification</div>.*?href="anita-anand-eu-gymnich-carney-europe-august-31-2026\.html".*?</article>\s*'
+          ]
+          for pat in pats:
+              t,n=re.subn(pat,'',t,count=1,flags=re.S)
+              if n!=1: raise SystemExit('could not remove stale Anand homepage card')
+
+          cards='''<article class="story story-feature"><div><div class="k" style="color:#b51f2a">Canada–U.S. trade · Prime Minister · Sovereignty</div><h2>“WHEN THE AMERICANS STOP DOING MEMES, STOP THROWING SHADE, STOP TRYING TO BE TOUGH AND START BEING SERIOUS ABOUT HAVING THOSE DISCUSSIONS, WE CAN HAVE THOSE DISCUSSIONS”</h2><p>Mark Carney leaves the negotiating door open — but says Washington has to stop performing and start negotiating.</p><a class="read" href="carney-americans-stop-memes-start-serious-trade-talks-september-1-2026.html">Read the report →</a><p class="meta" style="color:#666">Published Sept. 1, 2026 · 4:52 p.m. ET</p></div><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Mark_Carney_in_2025.png?width=500" alt="Prime Minister Mark Carney speaking at the White House"></article>
+          <article class="story"><div class="k" style="color:#b51f2a">Europe · Foreign policy · Gymnich · Developing</div><h2>CANADA IS IN EUROPE’S FOREIGN-POLICY ROOM. THE MEETING IS UNDER WAY.</h2><p>Anita Anand’s historic Gymnich participation is happening now. The Sept. 1–2 meeting continues Wednesday, so this replaces the stale preview without inventing a final outcome.</p><a class="read" href="anand-eu-gymnich-canada-europe-security-september-1-2026.html">Read the updated meeting report →</a><p class="meta" style="color:#666">Published Sept. 1, 2026 · 4:52 p.m. ET</p></article>
+          <article class="story story-feature"><div><div class="k" style="color:#b51f2a">Media Watch · National Post · Canada–U.S. trade</div><h2>WASHINGTON MOCKED CANADA. THE NATIONAL POST MADE THE HUMILIATION THE HEADLINE.</h2><p>Scott Bessent’s insult was news. The editorial choice was how to package it. Canada at War examines why that choice matters when U.S. officials are openly portraying Canada as weak, small and unable to resist.</p><a class="read" href="national-post-bessent-canada-humiliation-september-1-2026.html">Read the Media Watch analysis →</a><p class="meta" style="color:#666">Published Sept. 1, 2026 · 3:04 p.m. ET</p></div><img src="assets/national-post-bessent-clean-september-1-2026.jpg" alt="National Post social-media promotion of its Scott Bessent story"></article>
+          '''
+          needle='<main class="wrap">\n'
+          if needle not in t: raise SystemExit('main wrapper not found')
+          t=t.replace(needle,needle+cards,1)
+
+          for m in required:
+              if m not in t: raise SystemExit(f'missing protected marker after patch: {m}')
+          order=[
+            'germany-der-postillon-canadas-ass-map-september-1-2026.html',
+            'carney-americans-stop-memes-start-serious-trade-talks-september-1-2026.html',
+            'anand-eu-gymnich-canada-europe-security-september-1-2026.html'
+          ]
+          pos=[t.index(x) for x in order]
+          if pos != sorted(pos): raise SystemExit('requested homepage order is wrong')
+          if 'anita-anand-eu-gymnich-carney-europe-august-31-2026.html' in t: raise SystemExit('stale Aug. 31 Anand preview still on homepage')
+          if t.count('anand-eu-gymnich-canada-europe-security-september-1-2026.html') != 1: raise SystemExit('Anand current story duplicated on homepage')
+          p.write_text(t,encoding='utf-8')
+
+          sp=Path('Canada/sitemap.xml')
+          s=sp.read_text(encoding='utf-8')
+          s=re.sub(r'(<url><loc>https://brazilginga\.neocities\.org/Canada/</loc><lastmod>).*?(</lastmod></url>)',r'\g<1>2026-09-01T20:52:00Z\2',s,count=1)
+          s=re.sub(r'(<url><loc>https://brazilginga\.neocities\.org/Canada/anand-eu-gymnich-canada-europe-security-september-1-2026\.html</loc><lastmod>).*?(</lastmod></url>)',r'\g<1>2026-09-01T20:52:00Z\2',s,count=1)
+          additions=[
+            'germany-der-postillon-canadas-ass-map-september-1-2026.html',
+            'carney-americans-stop-memes-start-serious-trade-talks-september-1-2026.html'
+          ]
+          extra=''
+          for x in additions:
+              u='https://brazilginga.neocities.org/Canada/'+x
+              if u not in s: extra += f'  <url><loc>{u}</loc><lastmod>2026-09-01T20:52:00Z</lastmod></url>\n'
+          if extra: s=s.replace('</urlset>',extra+'</urlset>')
+          sp.write_text(s,encoding='utf-8')
+          PY
+
+      - name: Commit final source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/sitemap.xml
+          git diff --cached --check
+          git commit -m 'Hourly THE TICK refresh — finalize Sept. 1 Canada package'
+          git push origin HEAD:main
+
+      - name: Direct deploy requested Canada files
+        env:
+          NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]]
+          files=(
+            Canada/index.html
+            Canada/sitemap.xml
+            Canada/germany-der-postillon-canadas-ass-map-september-1-2026.html
+            Canada/carney-americans-stop-memes-start-serious-trade-talks-september-1-2026.html
+            Canada/anand-eu-gymnich-canada-europe-security-september-1-2026.html
+            Canada/assets/der-postillon-canadas-ass-map-september-1-2026.jpg
+          )
+          for f in "${files[@]}"; do
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors \
+              -H "Authorization: Bearer $NEOCITIES_API_KEY" \
+              -F "${f}=@${f}" https://neocities.org/api/upload
+          done
+
+      - name: Verify live homepage, stories, ticker and images
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="$(git rev-parse --short=8 HEAD)"
+          check() {
+            url="$1"; marker="$2"; tmp="$(mktemp)"; ok=0
+            for i in 1 2 3 4 5; do
+              code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "${url}?v=${short}&verify=${i}" || true)"
+              if [[ "$code" == 200 ]] && grep -Fq "$marker" "$tmp"; then ok=1; break; fi
+              sleep 2
+            done
+            [[ "$ok" == 1 ]] || { echo "verification failed: $url :: $marker" >&2; exit 1; }
+            rm -f "$tmp"
+          }
+          check 'https://brazilginga.neocities.org/Canada/' 'GERMANY HAS A NAME FOR AMERICA’S NEW PLACE ON THE MAP. IT IS NOT DIPLOMATIC.'
+          check 'https://brazilginga.neocities.org/Canada/' 'WHEN THE AMERICANS STOP DOING MEMES'
+          check 'https://brazilginga.neocities.org/Canada/' 'CANADA IS IN EUROPE’S FOREIGN-POLICY ROOM. THE MEETING IS UNDER WAY.'
+          check 'https://brazilginga.neocities.org/Canada/' 'FEDERAL POLITICS · Liberals win all three byelections'
+          check 'https://brazilginga.neocities.org/Canada/' 'How Lying Works'
+          check 'https://brazilginga.neocities.org/Canada/' 'petition-paint-mix'
+          check 'https://brazilginga.neocities.org/Canada/germany-der-postillon-canadas-ass-map-september-1-2026.html' 'Canada did not rename its neighbour.'
+          check 'https://brazilginga.neocities.org/Canada/carney-americans-stop-memes-start-serious-trade-talks-september-1-2026.html' 'stop performing and start negotiating'
+          check 'https://brazilginga.neocities.org/Canada/anand-eu-gymnich-canada-europe-security-september-1-2026.html' 'The Sept. 1–2 Gymnich was still in progress'
+
+          for img in \
+            'https://brazilginga.neocities.org/Canada/assets/der-postillon-canadas-ass-map-september-1-2026.jpg' \
+            'https://commons.wikimedia.org/wiki/Special:Redirect/file/Mark_Carney_in_2025.png?width=500'; do
+            code="$(curl -L -sS -o /dev/null -w '%{http_code}' "${img}?v=${short}" || true)"
+            [[ "$code" == 200 ]] || { echo "image verification failed: $img" >&2; exit 1; }
+          done
+
+          tmp="$(mktemp)"
+          curl -L -sS "https://brazilginga.neocities.org/Canada/?v=${short}&order=1" -o "$tmp"
+          python3 - "$tmp" <<'PY'
+          import sys
+          t=open(sys.argv[1],encoding='utf-8').read()
+          urls=['germany-der-postillon-canadas-ass-map-september-1-2026.html','carney-americans-stop-memes-start-serious-trade-talks-september-1-2026.html','anand-eu-gymnich-canada-europe-security-september-1-2026.html']
+          p=[t.index(x) for x in urls]
+          assert p==sorted(p),p
+          assert 'anita-anand-eu-gymnich-carney-europe-august-31-2026.html' not in t
+          assert 'CANADA_AT_WAR_MASTHEAD_LOCK' in t
+          assert 'tradingview-widget-container' in t
+          assert 'id="must-read-library"' in t
+          print('Homepage order and protected shell verified')
+          PY
+          rm -f "$tmp"
