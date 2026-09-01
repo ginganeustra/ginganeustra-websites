@@ -1,0 +1,74 @@
+name: Add Falklands headshot
+on:
+  push:
+    paths:
+      - '.falklands-headshot-trigger'
+permissions:
+  contents: write
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add exact existing Trump headshot and patch only Falklands placements
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp Canada/assets/lake-maps-headshot-august-30-2026.jpg Canada/assets/falklands-trump-headshot-august-31-2026.jpg
+          python3 - <<'PY'
+          from pathlib import Path
+          image='assets/falklands-trump-headshot-august-31-2026.jpg'
+          # Standalone article: small headshot after metadata; no image transformation.
+          p=Path('Canada/trump-falklands-sovereignty-review-allies-canada-august-31-2026.html')
+          s=p.read_text()
+          if image not in s:
+              s=s.replace('.pull{border-left:6px solid var(--red);', '.headshot{display:block;width:180px;max-width:42vw;height:auto;margin:22px 0 28px;border:1px solid #c8c1b5}.pull{border-left:6px solid var(--red);',1)
+              needle='<p class="meta">Published Aug. 31, 2026 · 8:54 p.m. ET · Analysis</p>'
+              if needle not in s: raise SystemExit('Article metadata anchor missing; refusing unsafe patch')
+              s=s.replace(needle, needle+f'<img class="headshot" src="{image}" alt="Portrait accompanying the Falklands analysis">',1)
+          p.write_text(s)
+          # Homepage: Falklands is already the lead. Add a small headshot only inside that hero.
+          p=Path('Canada/index.html'); s=p.read_text()
+          hero='<section class="hero"><div class="hero-in"><div class="k">Lead · Sovereignty Watch · United States · United Kingdom</div><h1>THE FALKLANDS TEST: WHEN AN ALLY’S SOVEREIGNTY BECOMES LEVERAGE</h1>'
+          if hero not in s: raise SystemExit('Falklands lead anchor missing; refusing unsafe homepage patch')
+          if image not in s:
+              replacement=hero+f'<img src="{image}" alt="Portrait accompanying the Falklands analysis" style="display:block;width:150px;max-width:38vw;height:auto;margin:18px 0 20px;border:1px solid #5a6069">'
+              s=s.replace(hero,replacement,1)
+          p.write_text(s)
+          PY
+          grep -Fq 'CANADA_AT_WAR_MASTHEAD_LOCK' Canada/index.html
+          grep -Fq 'THE TICK' Canada/index.html
+          grep -Fq 'petition-paint-mix' Canada/index.html
+          grep -Fq 'How Lying Works' Canada/index.html
+          grep -Fq 'THE FALKLANDS TEST: WHEN AN ALLY’S SOVEREIGNTY BECOMES LEVERAGE' Canada/index.html
+          grep -Fq 'assets/falklands-trump-headshot-august-31-2026.jpg' Canada/index.html
+          grep -Fq 'assets/falklands-trump-headshot-august-31-2026.jpg' Canada/trump-falklands-sovereignty-review-allies-canada-august-31-2026.html
+      - name: Upload only image, Falklands article and homepage to Neocities
+        env:
+          NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]]
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F 'Canada/assets/falklands-trump-headshot-august-31-2026.jpg=@Canada/assets/falklands-trump-headshot-august-31-2026.jpg' https://neocities.org/api/upload
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F 'Canada/trump-falklands-sovereignty-review-allies-canada-august-31-2026.html=@Canada/trump-falklands-sovereignty-review-allies-canada-august-31-2026.html' https://neocities.org/api/upload
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F 'Canada/index.html=@Canada/index.html' https://neocities.org/api/upload
+      - name: Verify public homepage article and image
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify_text(){ local url="$1" marker="$2" tmp code; tmp="$(mktemp)"; for n in 1 2 3 4 5 6; do code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "${url}?verify=${GITHUB_SHA::8}-${n}" || true)"; if [[ "$code" == 200 ]] && grep -Fq "$marker" "$tmp"; then echo "VERIFIED LIVE HTTP 200: $url :: $marker"; rm -f "$tmp"; return 0; fi; sleep 2; done; cat "$tmp" >&2 || true; rm -f "$tmp"; return 1; }
+          verify_code(){ local url="$1" code; for n in 1 2 3 4 5 6; do code="$(curl -L -sS -o /dev/null -w '%{http_code}' "${url}?verify=${GITHUB_SHA::8}-${n}" || true)"; if [[ "$code" == 200 ]]; then echo "VERIFIED LIVE IMAGE HTTP 200: $url"; return 0; fi; sleep 2; done; return 1; }
+          verify_text 'https://brazilginga.neocities.org/Canada/' 'assets/falklands-trump-headshot-august-31-2026.jpg'
+          verify_text 'https://brazilginga.neocities.org/Canada/trump-falklands-sovereignty-review-allies-canada-august-31-2026.html' 'assets/falklands-trump-headshot-august-31-2026.jpg'
+          verify_code 'https://brazilginga.neocities.org/Canada/assets/falklands-trump-headshot-august-31-2026.jpg'
+      - name: Commit exact publication state back to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Canada/index.html Canada/trump-falklands-sovereignty-review-allies-canada-august-31-2026.html Canada/assets/falklands-trump-headshot-august-31-2026.jpg
+          git diff --cached --quiet && exit 0
+          git commit -m 'Add small headshot to Falklands lead and article'
+          git push
