@@ -10,9 +10,17 @@ from __future__ import annotations
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 ROOTS = (Path("Brazil"), Path("Argentina"), Path("Canada"))
 ELEPHANT_STEM = "republican-elephant-tinfoil-sept-1-2026"
+
+
+def valid_png(path: Path) -> bool:
+    if not path.exists():
+        return False
+    data = path.read_bytes()
+    return len(data) > 1000 and data.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 def repair_elephant_art() -> None:
@@ -33,9 +41,6 @@ def repair_elephant_art() -> None:
     if shutil.which("convert"):
         commands.append(["convert", str(source), "-strip", "-colorspace", "sRGB", str(target)])
 
-    if not commands:
-        raise SystemExit("No raster converter available to repair CBC lead image")
-
     last_error = ""
     for command in commands:
         try:
@@ -43,12 +48,27 @@ def repair_elephant_art() -> None:
         except subprocess.CalledProcessError as exc:
             last_error = exc.stderr.decode("utf-8", "replace")[-1200:]
             continue
-        if target.exists():
-            data = target.read_bytes()
-            if len(data) > 1000 and data.startswith(b"\x89PNG\r\n\x1a\n"):
-                break
-    else:
-        raise SystemExit(f"Could not create browser-safe CBC lead PNG. {last_error}")
+        if valid_png(target):
+            break
+
+    if not valid_png(target):
+        print("No bundled raster converter succeeded; installing Pillow for one-file repair.")
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--quiet", "Pillow"],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            from PIL import Image
+            with Image.open(source) as image:
+                image.load()
+                image.convert("RGB").save(target, format="PNG", optimize=False)
+        except Exception as exc:
+            raise SystemExit(f"Could not create browser-safe CBC lead PNG. {last_error} Pillow error: {exc}")
+
+    if not valid_png(target):
+        raise SystemExit("CBC lead PNG failed signature/size validation after conversion")
 
     homepage = root / "index.html"
     article = root / "republicans-revoke-cbc-radio-canada-accreditation-september-1-2026.html"
