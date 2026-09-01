@@ -1,0 +1,60 @@
+name: Promote Falklands sovereignty lead
+on:
+  push:
+    paths:
+      - '.falklands-homepage-trigger'
+permissions:
+  contents: write
+jobs:
+  patch-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Surgically promote Falklands analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('Canada/index.html')
+          s=p.read_text()
+          old='''<section class="hero"><div class="hero-in"><div class="k">Lead · Canada–U.S. trade · G20 Asheville</div><h1>CHAMPAGNE TAKES CANADA’S DIVERSIFICATION CASE TO THE G20</h1><p>Canada’s finance minister arrived in Asheville emphasizing collaboration, a level playing field, critical minerals, energy and potash — and preparing for the first senior Canada–U.S. face-to-face contact since the trade talks collapsed.</p><a class="read" href="champagne-g20-asheville-shared-prosperity-august-31-2026.html">Read the 500-word report →</a><p class="meta">Published Aug. 31, 2026 · 5:56 p.m. ET</p></div></section>'''
+          new='''<section class="hero"><div class="hero-in"><div class="k">Lead · Sovereignty Watch · United States · United Kingdom</div><h1>THE FALKLANDS TEST: WHEN AN ALLY’S SOVEREIGNTY BECOMES LEVERAGE</h1><p>Donald Trump says Washington is reviewing its position on the Falkland Islands. For Canada, the issue is not whether the South Atlantic dispute is identical to our own confrontation with Washington. It is what happens when an ally’s territorial position can enter the bargaining inventory of American power.</p><a class="read" href="trump-falklands-sovereignty-review-allies-canada-august-31-2026.html">Read the 2,000-word analysis →</a><p class="meta">Published Aug. 31, 2026 · 8:54 p.m. ET</p></div></section>'''
+          if old not in s:
+              raise SystemExit('Expected Champagne lead not found; refusing unsafe rewrite')
+          s=s.replace(old,new,1)
+          marker='<main class="wrap">'
+          card='''\n<article class="story"><div class="k" style="color:#b51f2a">Canada–U.S. trade · G20 Asheville</div><h2>Champagne takes Canada’s diversification case to the G20.</h2><p>Canada’s finance minister arrived in Asheville emphasizing collaboration, a level playing field, critical minerals, energy and potash — and preparing for the first senior Canada–U.S. face-to-face contact since the trade talks collapsed.</p><a class="read" href="champagne-g20-asheville-shared-prosperity-august-31-2026.html">Read the 500-word report →</a><p class="meta" style="color:#666">Published Aug. 31, 2026 · 5:56 p.m. ET</p></article>'''
+          if marker not in s: raise SystemExit('Main wrapper missing')
+          s=s.replace(marker,marker+card,1)
+          import re
+          s=re.sub(r'UPDATED · AUGUST 31, 2026 · [0-9:]+ [AP]\.M\. ET','UPDATED · AUGUST 31, 2026 · 8:54 P.M. ET',s,count=1)
+          for required in ['CANADA_AT_WAR_MASTHEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','How Lying Works','id="must-read-library"']:
+              if required not in s: raise SystemExit('Protected marker missing: '+required)
+          p.write_text(s)
+          PY
+      - name: Upload only Falklands article and homepage to Neocities
+        env:
+          NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]]
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F 'Canada/trump-falklands-sovereignty-review-allies-canada-august-31-2026.html=@Canada/trump-falklands-sovereignty-review-allies-canada-august-31-2026.html' https://neocities.org/api/upload
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F 'Canada/index.html=@Canada/index.html' https://neocities.org/api/upload
+      - name: Verify public pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          verify(){ local u="$1" m="$2" t c; t="$(mktemp)"; for a in 1 2 3 4 5 6; do c="$(curl -L -sS -o "$t" -w '%{http_code}' "${u}?verify=${GITHUB_SHA::8}-${a}" || true)"; if [[ "$c" == 200 ]] && grep -Fq "$m" "$t"; then echo "VERIFIED LIVE HTTP 200: $u :: $m"; rm -f "$t"; return 0; fi; sleep 2; done; cat "$t" >&2; rm -f "$t"; return 1; }
+          verify 'https://brazilginga.neocities.org/Canada/' 'THE FALKLANDS TEST: WHEN AN ALLY’S SOVEREIGNTY BECOMES LEVERAGE'
+          verify 'https://brazilginga.neocities.org/Canada/trump-falklands-sovereignty-review-allies-canada-august-31-2026.html' 'The Falklands test: when an ally’s sovereignty becomes leverage.'
+      - name: Commit patched homepage back to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Canada/index.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Promote Falklands sovereignty analysis to Canada at War lead"
+          git push || true
