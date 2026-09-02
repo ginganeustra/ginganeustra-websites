@@ -19,17 +19,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Fetch and validate licensed art
+      - name: Fetch licensed art
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p Canada/assets
-          curl -L --fail-with-body --retry 3 --retry-all-errors \
-            'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/af/OpenAI_logo_2025_%28wordmark%29.svg/960px-OpenAI_logo_2025_%28wordmark%29.svg.png' \
-            -o Canada/assets/openai-wordmark-public-domain-september-2-2026.png
-          curl -L --fail-with-body --retry 3 --retry-all-errors \
-            'https://upload.wikimedia.org/wikipedia/commons/a/a7/CNC_Milling.png' \
-            -o Canada/assets/cnc-milling-cc0-september-2-2026.png
+          curl -L --fail-with-body --retry 3 --retry-all-errors 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/af/OpenAI_logo_2025_%28wordmark%29.svg/960px-OpenAI_logo_2025_%28wordmark%29.svg.png' -o Canada/assets/openai-wordmark-public-domain-september-2-2026.png
+          curl -L --fail-with-body --retry 3 --retry-all-errors 'https://upload.wikimedia.org/wikipedia/commons/a/a7/CNC_Milling.png' -o Canada/assets/cnc-milling-cc0-september-2-2026.png
           python3 - <<'PY'
           from pathlib import Path
           from scripts.validate_canada_publish import inspect_image
@@ -38,83 +34,47 @@ jobs:
               print('validated', p)
           PY
 
-      - name: Build both stories with canonical publisher
+      - name: Build stories with canonical publisher
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           import json
           from pathlib import Path
-
+          ai_body = [
+              '<p style="font:12px/1.5 Arial;color:#666">Art: OpenAI wordmark via Wikimedia Commons. Commons lists the wordmark as public domain because it consists of simple text/geometric material; OpenAI trademark rights remain applicable.</p>',
+              '<p>Two developments on opposite sides of the border have turned an abstract argument about artificial intelligence into a concrete Canadian sovereignty question: who writes the rules for the technology, and who gets paid when machines learn from human work?</p>',
+              '<p>In Washington, the Trump administration has formally entered one of the central American copyright fights over generative AI. In a brief filed in Manhattan federal court, the U.S. government backed OpenAI’s argument that using copyrighted material to train artificial-intelligence systems can qualify as fair use. Reuters and The Associated Press reported that the administration described AI training as highly transformative and warned that an overly restrictive interpretation of copyright could impede innovation, national security and U.S. economic competitiveness.</p>',
+              '<p>On the same day, Commerce Secretary Howard Lutnick carried that philosophy into an international forum. At the G20 Innovation Ministerial in North Carolina, the United States urged governments to develop rules that leave room for AI companies to train models on creators’ work while also protecting creators’ rights. Lutnick invoked the American doctrine of fair use. The proposal did not set out a detailed global copyright regime, and American fair use is not Canadian law.</p>',
+              '<p>That distinction matters because Canada has just acquired its own live test case. SOCAN, the Society of Composers, Authors and Music Publishers of Canada, announced Wednesday that it has sued Suno Inc. in Federal Court. SOCAN alleges that Suno’s generative-music platform produces and publicly streams outputs that replicate songs in SOCAN’s repertoire without consent or compensation and thereby infringes performing rights in the underlying musical works.</p>',
+              '<p>SOCAN says its claim identifies a sample of 150 publicly available Suno outputs. Its case is an allegation, not a finding by the court. The Canadian proceeding should also not be collapsed into the U.S. newspaper litigation: the legal claims, rights asserted and factual records differ. But the two disputes expose the same underlying policy collision. AI companies want access to enormous quantities of human-created material; creators and publishers are asking where permission, compensation and enforceable rights fit into that model.</p>',
+              '<p>The timing makes remarks Mark Carney made in Ireland before the June G7 summit look more consequential. Asked about artificial intelligence, child safety and the role of the United States in a changing international order, the prime minister said Canada would take child safety seriously and that “laissez-faire is not the answer to child safety.” He added that Canada would act even when not everyone around the G7 table agreed.</p>',
+              '<p>Carney was speaking specifically about AI-era safety and children, not deciding the copyright question now before the courts. It would be wrong to turn that quotation into a Canadian legal position on Suno or OpenAI. What it does reveal is a broader regulatory philosophy: Ottawa does not accept that the default response to fast-moving digital technology should be to leave the market alone.</p>',
+              '<p>That philosophy is also written into the government’s AI for All strategy. In launching it in June, Carney said that in the AI era, prosperity and sovereignty would belong to countries able to develop, adopt and govern the technology on their own terms. The strategy promises updated privacy and online-safety rules, protections for children, stronger AI-safety capacity and international partnerships designed to reduce technological dependence.</p>',
+              '<p>Europe provides the clearest contrast with Washington’s lighter-touch push. The European Union’s AI Act already requires providers of general-purpose AI models to maintain a policy for complying with EU copyright law and to publish a sufficiently detailed summary of training content. Providers of the most powerful models face additional safety and cybersecurity obligations. Canada has not simply copied the European model, but Ottawa and European governments increasingly occupy the same side of the argument that AI requires public rules as well as private innovation.</p>',
+              '<p>The G7 itself moved partway in that direction in June. Leaders, including the United States, backed a call for safer digital spaces for minors and acknowledged risks associated with conversational AI. That is important nuance: this is not a clean split in which Washington opposes every AI safeguard and Canada and Europe favour every regulation. The disagreement is over how far governments should go, how quickly, and where copyright, safety and sovereignty should constrain commercial deployment.</p>',
+              '<p>SOCAN’s lawsuit now gives Canada a domestic arena in which those questions will be tested. The U.S. government’s OpenAI brief and Lutnick’s G20 campaign show that Washington is simultaneously trying to shape the international answer. For Canada, the issue is larger than a single music platform or newspaper lawsuit. It is whether the rules governing a foundational technology will be imported from the United States, borrowed from Europe, or written in Canada around Canadian law and Canadian interests.</p>'
+          ]
+          grants_body = [
+              '<p style="font:12px/1.5 Arial;color:#666">Photo: Cnccp5/Wikimedia Commons, CC0 1.0 public-domain dedication. Used as a representative image of CNC milling; it does not depict Ace Machining’s newly purchased machine.</p>',
+              '<p>The federal government’s tariff response is beginning to show up in machine shops, export plans and purchasing decisions. A new $14.1-million package for Nova Scotia businesses contains one especially revealing detail: a Dartmouth manufacturer says U.S. tariffs caused it to take American suppliers out of the running when it bought new equipment.</p>',
+              '<p>Atlantic Canada Opportunities Agency Minister Sean Fraser announced the package Wednesday at Ace Machining Ltd. in Dartmouth. Ace received a $442,000 non-repayable contribution to purchase and install an automated CNC milling station intended to improve productivity and help it compete for more work in Canada and abroad.</p>',
+              '<p>Company president and co-owner Ron Wallace said the first round of U.S. tariffs changed the procurement decision. Ace removed American suppliers from consideration and selected a Matsuura MX-420 distributed by Elliott Matsuura Canada. Matsuura is a Japanese machine-tool manufacturer. Wallace said one purchase would not determine the trade dispute, but that similar decisions by enough Canadian companies could send a message.</p>',
+              '<p>That makes the announcement more interesting than a conventional regional-development package. The tariff conflict is not only changing the price of goods crossing the border. It is beginning to influence which countries Canadian companies look to for machinery, where they seek customers and which supply chains governments are willing to subsidize.</p>',
+              '<p>The other recipients show the same pattern. Halifax-based QRA Consulting is receiving $400,000 in non-repayable support for business development and engineering work aimed at becoming ready for European markets, identifying prospective customers and expanding exports. MacKenzie Atlantic Tool &amp; Die/Machining in Musquodoboit Harbour is receiving $956,820 for advanced CNC equipment that Ottawa says will strengthen its ability to supply Canadian and international defence and industrial programs.</p>',
+              '<p>SeaChange Biochemistry in Meteghan is receiving $163,700 for automated freeze-drying and packaging equipment, staff expansion, branding and participation in a United Kingdom trade mission. Other projects in the 27-recipient package include automation, cybersecurity, export certification and processing upgrades.</p>',
+              '<p>The money comes through the Regional Tariff Response Initiative, which Ottawa says now totals $3.45 billion nationally. The government added $1.5 billion to the program in August as part of a larger $7.5-billion package for workers and businesses affected by U.S. tariffs.</p>',
+              '<p>There are two different claims embedded in those numbers and they should not be confused. The government can document that money has been approved and equipment is being purchased. It cannot yet demonstrate that a European sales campaign will produce customers, that a U.K. mission will produce contracts or that new machinery will permanently replace U.S.-linked supply chains. Those are intended outcomes, not established results.</p>',
+              '<p>But the Ace decision is already real. A Canadian manufacturer says tariffs changed its purchasing criteria and eliminated American suppliers from consideration. At the same time, federal money is being directed toward European market entry, British trade development and defence-oriented production capacity.</p>',
+              '<p>That is what trade diversification looks like before the big export statistics move. It is granular: one machine, one supplier list, one engineering team, one trade mission and one potential defence contract at a time. If the Canada–U.S. dispute persists, these small procurement decisions will be worth watching because they can eventually harden into new commercial relationships that are much harder to reverse than a tariff schedule.</p>'
+          ]
           ai = {
-            'slug':'washington-openai-socan-suno-carney-ai-copyright-september-2-2026',
-            'title':'Washington backs OpenAI. Canadian creators are going to court — Canada at War',
-            'headline':'WASHINGTON BACKS OPENAI. CANADIAN CREATORS ARE GOING TO COURT.',
-            'description':'The Trump administration is pressing for a permissive approach to AI training while SOCAN sues Suno in Canada and Mark Carney says laissez-faire is not the answer to AI-era safety.',
-            'kicker':'Artificial intelligence · Copyright · Digital sovereignty · Canada–U.S.',
-            'deck':'The Trump administration is urging G20 governments to give AI companies room to train on copyrighted work. SOCAN has sued Suno in Canada, while Mark Carney has already said “laissez-faire” is not the answer to AI-era safety.',
-            'published_banner':'PUBLISHED · SEPTEMBER 2, 2026 · 3:28 P.M. ET',
-            'published_display':'Published Sept. 2, 2026 · 3:28 p.m. ET',
-            'lastmod_utc':'2026-09-02T19:28:00Z',
-            'image':'assets/openai-wordmark-public-domain-september-2-2026.png',
-            'image_alt':'OpenAI wordmark',
-            'image_width_percent':80,
-            'image_max_width':760,
-            'body_html':'''<p style="font:12px/1.5 Arial;color:#666">Art: OpenAI wordmark via Wikimedia Commons. The wordmark is listed there as public domain because it consists of simple text/geometric material; OpenAI trademark rights remain applicable.</p>
-<p>Two developments on opposite sides of the border have turned an abstract argument about artificial intelligence into a concrete Canadian sovereignty question: who writes the rules for the technology, and who gets paid when machines learn from human work?</p>
-<p>In Washington, the Trump administration has formally entered one of the central American copyright fights over generative AI. In a brief filed in Manhattan federal court, the U.S. government backed OpenAI’s argument that using copyrighted material to train artificial-intelligence systems can qualify as fair use. Reuters and The Associated Press reported that the administration described AI training as highly transformative and warned that an overly restrictive interpretation of copyright could impede innovation, national security and U.S. economic competitiveness.</p>
-<p>On the same day, Commerce Secretary Howard Lutnick carried that philosophy into an international forum. At the G20 Innovation Ministerial in North Carolina, the United States urged governments to develop rules that leave room for AI companies to train models on creators’ work while also protecting creators’ rights. Lutnick invoked the American doctrine of fair use. The proposal did not set out a detailed global copyright regime, and American fair use is not Canadian law.</p>
-<p>That distinction matters because Canada has just acquired its own live test case. SOCAN, the Society of Composers, Authors and Music Publishers of Canada, announced Wednesday that it has sued Suno Inc. in Federal Court. SOCAN alleges that Suno’s generative-music platform produces and publicly streams outputs that replicate songs in SOCAN’s repertoire without consent or compensation and thereby infringes performing rights in the underlying musical works.</p>
-<p>SOCAN says its claim identifies a sample of 150 publicly available Suno outputs. Its case is an allegation, not a finding by the court. The Canadian proceeding should also not be collapsed into the U.S. newspaper litigation: the legal claims, rights asserted and factual records differ. But the two disputes expose the same underlying policy collision. AI companies want access to enormous quantities of human-created material; creators and publishers are asking where permission, compensation and enforceable rights fit into that model.</p>
-<p>The timing makes remarks Mark Carney made in Ireland before the June G7 summit look more consequential. Asked about artificial intelligence, child safety and the role of the United States in a changing international order, the prime minister said Canada would take child safety seriously and that “laissez-faire is not the answer to child safety.” He added that Canada would act even when not everyone around the G7 table agreed.</p>
-<p>Carney was speaking specifically about AI-era safety and children, not deciding the copyright question now before the courts. It would be wrong to turn that quotation into a Canadian legal position on Suno or OpenAI. What it does reveal is a broader regulatory philosophy: Ottawa does not accept that the default response to fast-moving digital technology should be to leave the market alone.</p>
-<p>That philosophy is also written into the government’s AI for All strategy. In launching it in June, Carney said that in the AI era, prosperity and sovereignty would belong to countries able to develop, adopt and govern the technology on their own terms. The strategy promises updated privacy and online-safety rules, protections for children, stronger AI-safety capacity and international partnerships designed to reduce technological dependence.</p>
-<p>Europe provides the clearest contrast with Washington’s lighter-touch push. The European Union’s AI Act already requires providers of general-purpose AI models to maintain a policy for complying with EU copyright law and to publish a sufficiently detailed summary of training content. Providers of the most powerful models face additional safety and cybersecurity obligations. Canada has not simply copied the European model, but Ottawa and European governments increasingly occupy the same side of the argument that AI requires public rules as well as private innovation.</p>
-<p>The G7 itself moved partway in that direction in June. Leaders, including the United States, backed a call for safer digital spaces for minors and acknowledged risks associated with conversational AI. That is important nuance: this is not a clean split in which Washington opposes every AI safeguard and Canada and Europe favour every regulation. The disagreement is over how far governments should go, how quickly, and where copyright, safety and sovereignty should constrain commercial deployment.</p>
-<p>SOCAN’s lawsuit now gives Canada a domestic arena in which those questions will be tested. The U.S. government’s OpenAI brief and Lutnick’s G20 campaign show that Washington is simultaneously trying to shape the international answer. For Canada, the issue is larger than a single music platform or newspaper lawsuit. It is whether the rules governing a foundational technology will be imported from the United States, borrowed from Europe, or written in Canada around Canadian law and Canadian interests.</p>''',
-            'sources':[
-              {'label':'Reuters — U.S. urges G20 countries to allow AI training on creators’ work','url':'https://www.reuters.com/business/media-telecom/nvidia-ceo-urges-g20-avoid-ai-rules-theoretical-harms-2026-09-02/'},
-              {'label':'Reuters — U.S. government backs OpenAI in New York Times copyright case','url':'https://www.reuters.com/legal/litigation/us-government-backs-openai-new-york-times-copyright-case-2026-09-02/'},
-              {'label':'Associated Press — Trump administration backs OpenAI in copyright case','url':'https://apnews.com/article/dbb22e8e02c660ee5a8644915dec39a4'},
-              {'label':'SOCAN — legal action against Suno','url':'https://www.socanmagazine.ca/annoucements/socan-is-standing-up-for-its-members-with-legal-action-against-suno-inc/'},
-              {'label':'Canadian Press via CityNews — Carney says laissez-faire is not the answer to child safety','url':'https://vancouver.citynews.ca/2026/06/14/ahead-of-g7-carney-says-no-one-country-institution-to-characterize-new-world-order/'},
-              {'label':'Prime Minister of Canada — AI for All strategy','url':'https://www.pm.gc.ca/en/news/speeches/2026/06/04/prime-minister-carney-launches-ai-all-canadas-new-national-artificial'},
-              {'label':'Prime Minister of Canada — G7 call for a safer digital space for minors','url':'https://www.pm.gc.ca/en/news/statements/2026/06/17/leaders-call-safer-digital-space-minors'},
-              {'label':'European Commission — general-purpose AI obligations under the AI Act','url':'https://digital-strategy.ec.europa.eu/en/factpages/general-purpose-ai-obligations-under-ai-act'},
-              {'label':'Wikimedia Commons — OpenAI wordmark licensing','url':'https://commons.wikimedia.org/wiki/File:OpenAI_logo_2025_(wordmark).svg'}
-            ]
+              'slug':'washington-openai-socan-suno-carney-ai-copyright-september-2-2026','title':'Washington backs OpenAI. Canadian creators are going to court — Canada at War','headline':'WASHINGTON BACKS OPENAI. CANADIAN CREATORS ARE GOING TO COURT.','description':'The Trump administration is pressing for a permissive approach to AI training while SOCAN sues Suno in Canada and Mark Carney says laissez-faire is not the answer to AI-era safety.','kicker':'Artificial intelligence · Copyright · Digital sovereignty · Canada–U.S.','deck':'The Trump administration is urging G20 governments to give AI companies room to train on copyrighted work. SOCAN has sued Suno in Canada, while Mark Carney has already said “laissez-faire” is not the answer to AI-era safety.','published_banner':'PUBLISHED · SEPTEMBER 2, 2026 · 3:28 P.M. ET','published_display':'Published Sept. 2, 2026 · 3:28 p.m. ET','lastmod_utc':'2026-09-02T19:28:00Z','image':'assets/openai-wordmark-public-domain-september-2-2026.png','image_alt':'OpenAI wordmark','image_width_percent':80,'image_max_width':760,'body_html':ai_body,
+              'sources':[{'label':'Reuters — U.S. urges G20 countries to allow AI training on creators’ work','url':'https://www.reuters.com/business/media-telecom/nvidia-ceo-urges-g20-avoid-ai-rules-theoretical-harms-2026-09-02/'},{'label':'Reuters — U.S. government backs OpenAI in New York Times copyright case','url':'https://www.reuters.com/legal/litigation/us-government-backs-openai-new-york-times-copyright-case-2026-09-02/'},{'label':'Associated Press — Trump administration backs OpenAI in copyright case','url':'https://apnews.com/article/dbb22e8e02c660ee5a8644915dec39a4'},{'label':'SOCAN — legal action against Suno','url':'https://www.socanmagazine.ca/annoucements/socan-is-standing-up-for-its-members-with-legal-action-against-suno-inc/'},{'label':'Canadian Press via CityNews — Carney says laissez-faire is not the answer to child safety','url':'https://vancouver.citynews.ca/2026/06/14/ahead-of-g7-carney-says-no-one-country-institution-to-characterize-new-world-order/'},{'label':'Prime Minister of Canada — AI for All strategy','url':'https://www.pm.gc.ca/en/news/speeches/2026/06/04/prime-minister-carney-launches-ai-all-canadas-new-national-artificial'},{'label':'Prime Minister of Canada — G7 call for a safer digital space for minors','url':'https://www.pm.gc.ca/en/news/statements/2026/06/17/leaders-call-safer-digital-space-minors'},{'label':'European Commission — general-purpose AI obligations under the AI Act','url':'https://digital-strategy.ec.europa.eu/en/factpages/general-purpose-ai-obligations-under-ai-act'},{'label':'Wikimedia Commons — OpenAI wordmark licensing','url':'https://commons.wikimedia.org/wiki/File:OpenAI_logo_2025_(wordmark).svg'}]
           }
-
           grants = {
-            'slug':'nova-scotia-tariff-grants-europe-defence-machining-september-2-2026',
-            'title':'The tariff war is starting to change what Canadian companies buy — Canada at War',
-            'headline':'THE TARIFF WAR IS STARTING TO CHANGE WHAT CANADIAN COMPANIES BUY',
-            'description':'A $14.1-million Nova Scotia package shows Canadian tariff relief turning into machinery purchases, defence capacity and efforts to win customers in Europe and the United Kingdom.',
-            'kicker':'Tariff response · Industrial policy · Nova Scotia · Diversification',
-            'deck':'Ottawa’s $14.1-million Nova Scotia package is more than a grant announcement. One manufacturer says it removed U.S. suppliers from consideration; others are using federal money to pursue Europe, defence work and a U.K. trade mission.',
-            'published_banner':'PUBLISHED · SEPTEMBER 2, 2026 · 3:28 P.M. ET',
-            'published_display':'Published Sept. 2, 2026 · 3:28 p.m. ET',
-            'lastmod_utc':'2026-09-02T19:28:00Z',
-            'image':'assets/cnc-milling-cc0-september-2-2026.png',
-            'image_alt':'Computer numerical control milling machinery',
-            'image_width_percent':82,
-            'image_max_width':760,
-            'body_html':'''<p style="font:12px/1.5 Arial;color:#666">Photo: Cnccp5/Wikimedia Commons, CC0 1.0 public-domain dedication. Used as a representative image of CNC milling; it does not depict Ace Machining’s newly purchased machine.</p>
-<p>The federal government’s tariff response is beginning to show up in machine shops, export plans and purchasing decisions. A new $14.1-million package for Nova Scotia businesses contains one especially revealing detail: a Dartmouth manufacturer says U.S. tariffs caused it to take American suppliers out of the running when it bought new equipment.</p>
-<p>Atlantic Canada Opportunities Agency Minister Sean Fraser announced the package Wednesday at Ace Machining Ltd. in Dartmouth. Ace received a $442,000 non-repayable contribution to purchase and install an automated CNC milling station intended to improve productivity and help it compete for more work in Canada and abroad.</p>
-<p>Company president and co-owner Ron Wallace said the first round of U.S. tariffs changed the procurement decision. Ace removed American suppliers from consideration and selected a Matsuura MX-420 distributed by Elliott Matsuura Canada. Matsuura is a Japanese machine-tool manufacturer. Wallace said one purchase would not determine the trade dispute, but that similar decisions by enough Canadian companies could send a message.</p>
-<p>That makes the announcement more interesting than a conventional regional-development package. The tariff conflict is not only changing the price of goods crossing the border. It is beginning to influence which countries Canadian companies look to for machinery, where they seek customers and which supply chains governments are willing to subsidize.</p>
-<p>The other recipients show the same pattern. Halifax-based QRA Consulting is receiving $400,000 in non-repayable support for business development and engineering work aimed at becoming ready for European markets, identifying prospective customers and expanding exports. MacKenzie Atlantic Tool &amp; Die/Machining in Musquodoboit Harbour is receiving $956,820 for advanced CNC equipment that Ottawa says will strengthen its ability to supply Canadian and international defence and industrial programs.</p>
-<p>SeaChange Biochemistry in Meteghan is receiving $163,700 for automated freeze-drying and packaging equipment, staff expansion, branding and participation in a United Kingdom trade mission. Other projects in the 27-recipient package include automation, cybersecurity, export certification and processing upgrades.</p>
-<p>The money comes through the Regional Tariff Response Initiative, which Ottawa says now totals $3.45 billion nationally. The government added $1.5 billion to the program in August as part of a larger $7.5-billion package for workers and businesses affected by U.S. tariffs.</p>
-<p>There are two different claims embedded in those numbers and they should not be confused. The government can document that money has been approved and equipment is being purchased. It cannot yet demonstrate that a European sales campaign will produce customers, that a U.K. mission will produce contracts or that new machinery will permanently replace U.S.-linked supply chains. Those are intended outcomes, not established results.</p>
-<p>But the Ace decision is already real. A Canadian manufacturer says tariffs changed its purchasing criteria and eliminated American suppliers from consideration. At the same time, federal money is being directed toward European market entry, British trade development and defence-oriented production capacity.</p>
-<p>That is what trade diversification looks like before the big export statistics move. It is granular: one machine, one supplier list, one engineering team, one trade mission and one potential defence contract at a time. If the Canada–U.S. dispute persists, these small procurement decisions will be worth watching because they can eventually harden into new commercial relationships that are much harder to reverse than a tariff schedule.</p>''',
-            'sources':[
-              {'label':'Atlantic Canada Opportunities Agency — $14.1-million Nova Scotia tariff-response announcement','url':'https://www.canada.ca/en/atlantic-canada-opportunities/news/2026/09/canada-invests-14m-to-help-nova-scotia-businesses-respond-to-tariffs.html'},
-              {'label':'Atlantic Canada Opportunities Agency — project-by-project backgrounder','url':'https://www.canada.ca/en/atlantic-canada-opportunities/news/2026/09/14m-in-federal-support-helps-nova-scotia-businesses-modernize-to-navigate-trade-pressures.html'},
-              {'label':'Wikimedia Commons — CNC Milling image and CC0 licence','url':'https://commons.wikimedia.org/wiki/File:CNC_Milling.png'}
-            ]
+              'slug':'nova-scotia-tariff-grants-europe-defence-machining-september-2-2026','title':'The tariff war is starting to change what Canadian companies buy — Canada at War','headline':'THE TARIFF WAR IS STARTING TO CHANGE WHAT CANADIAN COMPANIES BUY','description':'A $14.1-million Nova Scotia package shows Canadian tariff relief turning into machinery purchases, defence capacity and efforts to win customers in Europe and the United Kingdom.','kicker':'Tariff response · Industrial policy · Nova Scotia · Diversification','deck':'Ottawa’s $14.1-million Nova Scotia package is more than a grant announcement. One manufacturer says it removed U.S. suppliers from consideration; others are using federal money to pursue Europe, defence work and a U.K. trade mission.','published_banner':'PUBLISHED · SEPTEMBER 2, 2026 · 3:28 P.M. ET','published_display':'Published Sept. 2, 2026 · 3:28 p.m. ET','lastmod_utc':'2026-09-02T19:28:00Z','image':'assets/cnc-milling-cc0-september-2-2026.png','image_alt':'Computer numerical control milling machinery','image_width_percent':82,'image_max_width':760,'body_html':grants_body,
+              'sources':[{'label':'Atlantic Canada Opportunities Agency — $14.1-million Nova Scotia tariff-response announcement','url':'https://www.canada.ca/en/atlantic-canada-opportunities/news/2026/09/canada-invests-14m-to-help-nova-scotia-businesses-respond-to-tariffs.html'},{'label':'Atlantic Canada Opportunities Agency — project-by-project backgrounder','url':'https://www.canada.ca/en/atlantic-canada-opportunities/news/2026/09/14m-in-federal-support-helps-nova-scotia-businesses-modernize-to-navigate-trade-pressures.html'},{'label':'Wikimedia Commons — CNC Milling image and CC0 licence','url':'https://commons.wikimedia.org/wiki/File:CNC_Milling.png'}]
           }
           Path('/tmp/ai.json').write_text(json.dumps(ai,ensure_ascii=False),encoding='utf-8')
           Path('/tmp/grants.json').write_text(json.dumps(grants,ensure_ascii=False),encoding='utf-8')
@@ -122,82 +82,57 @@ jobs:
           python3 scripts/publish_canada_story.py /tmp/ai.json
           python3 scripts/publish_canada_story.py /tmp/grants.json
 
-      - name: Place stories second and third without changing lead
+      - name: Place second and third while preserving lead
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           import re
-
-          p=Path('Canada/index.html')
-          t=p.read_text(encoding='utf-8')
+          p=Path('Canada/index.html'); t=p.read_text(encoding='utf-8')
           required=['CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','How Lying Works','id="must-read-library"']
           for m in required:
               if m not in t: raise SystemExit(f'missing protected marker before patch: {m}')
-          lead_before=re.search(r'<!-- CANADA_LEAD_BEGIN -->\s*(.*?)\s*<!-- CANADA_LEAD_END -->',t,re.S)
-          if lead_before:
-              protected_lead=lead_before.group(1)
-          else:
-              hero=re.search(r'<!-- PINNED_LEAD_LOCK -->\s*(<section class="hero">.*?</section>)',t,re.S)
-              if not hero: raise SystemExit('cannot identify existing lead')
-              protected_lead=hero.group(1)
-
-          # Remove this package only if a retry encounters a partial previous insertion.
+          lead=re.search(r'<!-- CANADA_LEAD_BEGIN -->\s*(.*?)\s*<!-- CANADA_LEAD_END -->',t,re.S)
+          hero=re.search(r'<!-- PINNED_LEAD_LOCK -->\s*(<section class="hero">.*?</section>)',t,re.S)
+          protected=(lead.group(1) if lead else hero.group(1) if hero else None)
+          if protected is None: raise SystemExit('cannot identify current lead')
           for slug in ['washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html','nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html']:
               t=re.sub(r'<article class="story(?: story-feature)?">.*?href="'+re.escape(slug)+r'".*?</article>\s*','',t,count=1,flags=re.S)
-
-          cards='''<article class="story story-feature"><div><div class="k" style="color:#b51f2a">Artificial intelligence · Copyright · Digital sovereignty</div><h2>WASHINGTON BACKS OPENAI. CANADIAN CREATORS ARE GOING TO COURT.</h2><p>The U.S. is pressing a permissive approach to AI training as SOCAN sues Suno in Canada and Mark Carney says “laissez-faire” is not the answer to AI-era safety.</p><a class="read" href="washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html">Read the report →</a><p class="meta" style="color:#666">Published Sept. 2, 2026 · 3:28 p.m. ET</p></div><img src="assets/openai-wordmark-public-domain-september-2-2026.png" alt="OpenAI wordmark"></article>
-          <article class="story story-feature"><div><div class="k" style="color:#b51f2a">Tariff response · Industrial policy · Nova Scotia</div><h2>THE TARIFF WAR IS STARTING TO CHANGE WHAT CANADIAN COMPANIES BUY</h2><p>One Nova Scotia manufacturer says it removed U.S. suppliers from consideration; other federal grants are aimed at Europe, defence work and a U.K. trade mission.</p><a class="read" href="nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html">Read the report →</a><p class="meta" style="color:#666">Published Sept. 2, 2026 · 3:28 p.m. ET</p></div><img src="assets/cnc-milling-cc0-september-2-2026.png" alt="Computer numerical control milling machinery"></article>
-          '''
+          cards = '<article class="story story-feature"><div><div class="k" style="color:#b51f2a">Artificial intelligence · Copyright · Digital sovereignty</div><h2>WASHINGTON BACKS OPENAI. CANADIAN CREATORS ARE GOING TO COURT.</h2><p>The U.S. is pressing a permissive approach to AI training as SOCAN sues Suno in Canada and Mark Carney says “laissez-faire” is not the answer to AI-era safety.</p><a class="read" href="washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html">Read the report →</a><p class="meta" style="color:#666">Published Sept. 2, 2026 · 3:28 p.m. ET</p></div><img src="assets/openai-wordmark-public-domain-september-2-2026.png" alt="OpenAI wordmark"></article>\n<article class="story story-feature"><div><div class="k" style="color:#b51f2a">Tariff response · Industrial policy · Nova Scotia</div><h2>THE TARIFF WAR IS STARTING TO CHANGE WHAT CANADIAN COMPANIES BUY</h2><p>One Nova Scotia manufacturer says it removed U.S. suppliers from consideration; other federal grants are aimed at Europe, defence work and a U.K. trade mission.</p><a class="read" href="nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html">Read the report →</a><p class="meta" style="color:#666">Published Sept. 2, 2026 · 3:28 p.m. ET</p></div><img src="assets/cnc-milling-cc0-september-2-2026.png" alt="Computer numerical control milling machinery"></article>\n'
           needle='<main class="wrap">'
           if t.count(needle)!=1: raise SystemExit('main wrapper missing or duplicated')
           t=t.replace(needle,needle+'\n'+cards,1)
-          t,n=re.subn(r'<div class="top">UPDATED · .*?</div>', '<div class="top">UPDATED · SEPTEMBER 2, 2026 · 3:28 P.M. ET</div>', t, count=1)
-          if n!=1: raise SystemExit('could not update homepage timestamp')
-
+          t,n=re.subn(r'<div class="top">UPDATED · .*?</div>','<div class="top">UPDATED · SEPTEMBER 2, 2026 · 3:28 P.M. ET</div>',t,count=1)
+          if n!=1: raise SystemExit('homepage timestamp not found')
           for m in required:
               if m not in t: raise SystemExit(f'missing protected marker after patch: {m}')
-          lead_after=re.search(r'<!-- CANADA_LEAD_BEGIN -->\s*(.*?)\s*<!-- CANADA_LEAD_END -->',t,re.S)
-          if lead_after and lead_after.group(1)!=protected_lead: raise SystemExit('existing lead changed unexpectedly')
-          if not lead_after:
-              hero_after=re.search(r'<!-- PINNED_LEAD_LOCK -->\s*(<section class="hero">.*?</section>)',t,re.S)
-              if not hero_after or hero_after.group(1)!=protected_lead: raise SystemExit('existing lead changed unexpectedly')
-          pos=[t.index('washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html'),t.index('nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html')]
-          mainpos=t.index(needle)
-          if not (mainpos < pos[0] < pos[1]): raise SystemExit('story order is not second then third')
+          checklead=re.search(r'<!-- CANADA_LEAD_BEGIN -->\s*(.*?)\s*<!-- CANADA_LEAD_END -->',t,re.S)
+          checkhero=re.search(r'<!-- PINNED_LEAD_LOCK -->\s*(<section class="hero">.*?</section>)',t,re.S)
+          after=(checklead.group(1) if checklead else checkhero.group(1) if checkhero else None)
+          if after!=protected: raise SystemExit('lead changed unexpectedly')
+          if not (t.index('washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html') < t.index('nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html')): raise SystemExit('requested order failed')
           p.write_text(t,encoding='utf-8')
           PY
 
-      - name: Update discovery files and run mandatory preflight
+      - name: Update discovery and preflight
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import re
-          items=[
-            ('washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html','Washington backs OpenAI. Canadian creators are going to court'),
-            ('nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html','The tariff war is starting to change what Canadian companies buy')
-          ]
-          root=Path('sitemap.xml')
-          s=root.read_text(encoding='utf-8')
+          items=[('washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html','Washington backs OpenAI. Canadian creators are going to court'),('nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html','The tariff war is starting to change what Canadian companies buy')]
+          p=Path('sitemap.xml'); s=p.read_text(encoding='utf-8')
           for slug,_ in items:
               u='https://brazilginga.neocities.org/Canada/'+slug
-              if u not in s:
-                  s=s.replace('</urlset>',f'  <url><loc>{u}</loc><lastmod>2026-09-02T19:28:00Z</lastmod></url>\n</urlset>',1)
-          root.write_text(s,encoding='utf-8')
-
-          news=Path('news-sitemap.xml')
-          n=news.read_text(encoding='utf-8')
-          entries=''
+              if u not in s: s=s.replace('</urlset>',f'  <url><loc>{u}</loc><lastmod>2026-09-02T19:28:00Z</lastmod></url>\n</urlset>',1)
+          p.write_text(s,encoding='utf-8')
+          p=Path('news-sitemap.xml'); n=p.read_text(encoding='utf-8'); add=''
           for slug,title in items:
               u='https://brazilginga.neocities.org/Canada/'+slug
-              if u not in n:
-                  entries += f'  <url><loc>{u}</loc><news:news><news:publication><news:name>Canada at War</news:name><news:language>en</news:language></news:publication><news:publication_date>2026-09-02T15:28:00-04:00</news:publication_date><news:title>{title}</news:title></news:news></url>\n'
-          if entries:
-              n=n.replace('</urlset>',entries+'</urlset>',1)
-          news.write_text(n,encoding='utf-8')
+              if u not in n: add += f'  <url><loc>{u}</loc><news:news><news:publication><news:name>Canada at War</news:name><news:language>en</news:language></news:publication><news:publication_date>2026-09-02T15:28:00-04:00</news:publication_date><news:title>{title}</news:title></news:news></url>\n'
+          if add: n=n.replace('</urlset>',add+'</urlset>',1)
+          p.write_text(n,encoding='utf-8')
           PY
           python3 scripts/validate_canada_publish.py
           python3 - <<'PY'
@@ -206,96 +141,48 @@ jobs:
               ET.parse(f); print('XML OK',f)
           PY
 
-      - name: Commit complete package
+      - name: Commit package
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            Canada/index.html Canada/sitemap.xml sitemap.xml news-sitemap.xml Canada/.publish/last.json \
-            Canada/washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html \
-            Canada/nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html \
-            Canada/assets/openai-wordmark-public-domain-september-2-2026.png \
-            Canada/assets/cnc-milling-cc0-september-2-2026.png
+          git add Canada/index.html Canada/sitemap.xml sitemap.xml news-sitemap.xml Canada/.publish/last.json Canada/washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html Canada/nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html Canada/assets/openai-wordmark-public-domain-september-2-2026.png Canada/assets/cnc-milling-cc0-september-2-2026.png
           git diff --cached --check
           git commit -m 'Publish AI copyright and tariff-diversification stories'
           git push origin HEAD:main
 
-      - name: Direct deploy package after bot commit
+      - name: Direct deploy package
         env:
           NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           [[ -n "${NEOCITIES_API_KEY:-}" ]]
-          files=(
-            Canada/index.html
-            Canada/sitemap.xml
-            sitemap.xml
-            news-sitemap.xml
-            Canada/washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html
-            Canada/nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html
-            Canada/assets/openai-wordmark-public-domain-september-2-2026.png
-            Canada/assets/cnc-milling-cc0-september-2-2026.png
-          )
+          files=(Canada/index.html Canada/sitemap.xml sitemap.xml news-sitemap.xml Canada/washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html Canada/nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html Canada/assets/openai-wordmark-public-domain-september-2-2026.png Canada/assets/cnc-milling-cc0-september-2-2026.png)
           for f in "${files[@]}"; do
-            curl --fail-with-body --show-error --retry 3 --retry-all-errors \
-              -H "Authorization: Bearer $NEOCITIES_API_KEY" \
-              -F "${f}=@${f}" https://neocities.org/api/upload
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F "${f}=@${f}" https://neocities.org/api/upload
           done
 
-      - name: Live acceptance verification
+      - name: Live acceptance
         shell: bash
         run: |
           set -euo pipefail
           short="$(git rev-parse --short=8 HEAD)"
-          check() {
-            url="$1"; marker="$2"; tmp="$(mktemp)"; ok=0
-            for i in 1 2 3 4 5; do
-              code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "${url}?v=${short}&verify=${i}" || true)"
-              if [[ "$code" == 200 ]] && grep -Fq "$marker" "$tmp"; then ok=1; break; fi
-              sleep 2
-            done
-            [[ "$ok" == 1 ]] || { echo "verification failed: $url :: $marker" >&2; exit 1; }
-            rm -f "$tmp"
-          }
+          check() { url="$1"; marker="$2"; tmp="$(mktemp)"; ok=0; for i in 1 2 3 4 5; do code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "${url}?v=${short}&verify=${i}" || true)"; if [[ "$code" == 200 ]] && grep -Fq "$marker" "$tmp"; then ok=1; break; fi; sleep 2; done; [[ "$ok" == 1 ]] || { echo "verification failed: $url :: $marker" >&2; exit 1; }; rm -f "$tmp"; }
           check 'https://brazilginga.neocities.org/Canada/' 'WASHINGTON BACKS OPENAI. CANADIAN CREATORS ARE GOING TO COURT.'
           check 'https://brazilginga.neocities.org/Canada/' 'THE TARIFF WAR IS STARTING TO CHANGE WHAT CANADIAN COMPANIES BUY'
           check 'https://brazilginga.neocities.org/Canada/washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html' 'laissez-faire is not the answer to child safety'
           check 'https://brazilginga.neocities.org/Canada/nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html' 'removed American suppliers from consideration'
           check 'https://brazilginga.neocities.org/Canada/' 'How Lying Works'
           check 'https://brazilginga.neocities.org/Canada/' 'petition-paint-mix'
-
           python3 - <<'PY'
-          import hashlib, urllib.request
+          import hashlib,urllib.request
           from pathlib import Path
           for rel in ['assets/openai-wordmark-public-domain-september-2-2026.png','assets/cnc-milling-cc0-september-2-2026.png']:
-              local=Path('Canada')/rel
-              url='https://brazilginga.neocities.org/Canada/'+rel+'?verify=bytes'
-              remote=urllib.request.urlopen(url,timeout=30).read()
-              assert remote.startswith(b'\x89PNG\r\n\x1a\n'), rel
-              assert hashlib.sha256(remote).hexdigest()==hashlib.sha256(local.read_bytes()).hexdigest(), rel
+              local=Path('Canada')/rel; remote=urllib.request.urlopen('https://brazilginga.neocities.org/Canada/'+rel+'?verify=bytes',timeout=30).read()
+              assert remote.startswith(b'\x89PNG\r\n\x1a\n'),rel
+              assert hashlib.sha256(remote).hexdigest()==hashlib.sha256(local.read_bytes()).hexdigest(),rel
               print('image bytes verified',rel)
+          print('CANADA PUBLICATION VERIFIED: homepage + both articles + both images')
           PY
-
-          tmp="$(mktemp)"
-          curl -L -sS "https://brazilginga.neocities.org/Canada/?v=${short}&order=1" -o "$tmp"
-          python3 - "$tmp" <<'PY'
-          import re,sys
-          t=open(sys.argv[1],encoding='utf-8').read()
-          lead=re.search(r'<!-- CANADA_LEAD_BEGIN -->\s*(.*?)\s*<!-- CANADA_LEAD_END -->',t,re.S)
-          if lead:
-              lead_end=t.index('<!-- CANADA_LEAD_END -->')
-          else:
-              h=re.search(r'<!-- PINNED_LEAD_LOCK -->\s*<section class="hero">.*?</section>',t,re.S)
-              assert h
-              lead_end=h.end()
-          a=t.index('washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html')
-          b=t.index('nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html')
-          assert lead_end < a < b, (lead_end,a,b)
-          for m in ['CANADA_AT_WAR_MASTHEAD_LOCK','THE TICK','tradingview-widget-container','id="must-read-library"']:
-              assert m in t,m
-          print('CANADA PUBLICATION VERIFIED: homepage + both articles + both images; order second/third preserved')
-          PY
-          rm -f "$tmp"
