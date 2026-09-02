@@ -79,6 +79,9 @@ jobs:
           PY
           rm -f "$tmp"
 
+          # Match the normal deployment's permanent image-sanitization step before byte comparison.
+          python3 scripts/strip_publication_image_metadata.py
+
           python3 - <<'PY'
           import hashlib, urllib.request
           from pathlib import Path
