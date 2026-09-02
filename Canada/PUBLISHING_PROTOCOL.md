@@ -116,6 +116,20 @@ The production route remains:
 
 Do not substitute manual Neocities editing, a different repository, a different branch, a fresh browser login, or a separate ad-hoc upload path for routine publication.
 
+## Deployment race gate
+
+A one-shot workflow that directly uploads and verifies files can still be followed by an older `Publish to Neocities` run that checked out the pre-final source state. If that older run finishes later, it can overwrite the newly verified public pages with stale content.
+
+Therefore:
+
+- inspect all `Publish to Neocities` runs triggered by the staging/workflow commit and the final source commit;
+- do not treat a one-shot live check as final while an older deployment based on pre-final source is queued or running;
+- after the last competing deployment has settled, redeploy the current final `main` state if necessary;
+- perform a fresh cache-busted public verification after that final deployment;
+- only the post-race verification counts as acceptance.
+
+This failure was observed on September 2, 2026: the AI-copyright/tariff-grants one-shot verified the correct public files, but a concurrently triggered normal deploy from the preceding workflow-file commit completed afterward and restored the older public state.
+
 ## Live acceptance gate
 
 A GitHub Actions green check is not sufficient by itself.
