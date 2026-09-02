@@ -1,0 +1,97 @@
+name: Canada Sept. 2 final live verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/canada-sept2-final-live-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for all competing Neocities deploys to settle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=20"
+          for attempt in $(seq 1 60); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active Publish to Neocities runs: $active"
+            if [[ "$active" == 0 ]]; then exit 0; fi
+            sleep 5
+          done
+          echo 'Timed out waiting for competing Neocities deployments to settle' >&2
+          exit 1
+
+      - name: Confirm final public homepage, stories, order and images
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA::8}"
+          fetch_check() {
+            local url="$1" marker="$2" tmp code ok=0
+            tmp="$(mktemp)"
+            for attempt in $(seq 1 12); do
+              code="$(curl -L -sS -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' -o "$tmp" -w '%{http_code}' "${url}?verify=${short}-${attempt}-$(date +%s)" || true)"
+              if [[ "$code" == 200 ]] && grep -Fq "$marker" "$tmp"; then ok=1; break; fi
+              sleep 5
+            done
+            [[ "$ok" == 1 ]] || { echo "FINAL LIVE CHECK FAILED: $url :: $marker :: HTTP $code" >&2; sed -n '1,80p' "$tmp" >&2 || true; rm -f "$tmp"; exit 1; }
+            echo "FINAL LIVE HTTP 200 + MARKER: $url :: $marker"
+            rm -f "$tmp"
+          }
+
+          fetch_check 'https://brazilginga.neocities.org/Canada/' 'MAGAHEADS: WASHINGTON’S MORNING MESSAGE TO CANADA'
+          fetch_check 'https://brazilginga.neocities.org/Canada/' 'WASHINGTON BACKS OPENAI. CANADIAN CREATORS ARE GOING TO COURT.'
+          fetch_check 'https://brazilginga.neocities.org/Canada/' 'THE TARIFF WAR IS STARTING TO CHANGE WHAT CANADIAN COMPANIES BUY'
+          fetch_check 'https://brazilginga.neocities.org/Canada/washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html' 'laissez-faire is not the answer to child safety'
+          fetch_check 'https://brazilginga.neocities.org/Canada/nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html' 'removed American suppliers from consideration'
+          fetch_check 'https://brazilginga.neocities.org/Canada/' 'How Lying Works'
+          fetch_check 'https://brazilginga.neocities.org/Canada/' 'petition-paint-mix'
+
+          tmp="$(mktemp)"
+          curl -L -fsSL -H 'Cache-Control: no-cache' "https://brazilginga.neocities.org/Canada/?verify=${short}-order-$(date +%s)" -o "$tmp"
+          python3 - "$tmp" <<'PY'
+          import sys
+          t=open(sys.argv[1],encoding='utf-8').read()
+          links=[
+            'magaheads-washington-canada-message-september-2-2026.html',
+            'washington-openai-socan-suno-carney-ai-copyright-september-2-2026.html',
+            'nova-scotia-tariff-grants-europe-defence-machining-september-2-2026.html'
+          ]
+          pos=[t.index(x) for x in links]
+          assert pos == sorted(pos), pos
+          for marker in ['CANADA_AT_WAR_MASTHEAD_LOCK','THE TICK','tradingview-widget-container','petition-paint-mix','id="must-read-library"']:
+              assert marker in t, marker
+          print('FINAL HOMEPAGE ORDER + PROTECTED SHELL VERIFIED')
+          PY
+          rm -f "$tmp"
+
+          python3 - <<'PY'
+          import hashlib, urllib.request
+          from pathlib import Path
+          for rel in ['assets/openai-wordmark-public-domain-september-2-2026.png','assets/cnc-milling-cc0-september-2-2026.png']:
+              local=Path('Canada')/rel
+              req=urllib.request.Request('https://brazilginga.neocities.org/Canada/'+rel+'?verify=final-'+rel.split('/')[-1],headers={'Cache-Control':'no-cache','Pragma':'no-cache','User-Agent':'CanadaAtWarFinalVerifier/1.0'})
+              with urllib.request.urlopen(req,timeout=30) as r:
+                  assert r.status == 200, (rel,r.status)
+                  ctype=r.headers.get('Content-Type','')
+                  remote=r.read()
+              assert 'image' in ctype.lower(), (rel,ctype)
+              assert remote.startswith(b'\x89PNG\r\n\x1a\n'), rel
+              assert hashlib.sha256(remote).hexdigest()==hashlib.sha256(local.read_bytes()).hexdigest(), rel
+              print('FINAL IMAGE BYTES VERIFIED',rel,ctype)
+          print('CANADA SEPT 2 FINAL LIVE ACCEPTANCE PASSED')
+          PY
