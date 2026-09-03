@@ -1,0 +1,211 @@
+name: Canada Sept. 3 MAGAHEADS Truth Social update
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-sept3-magaheads-truth-update.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wait for older Neocities deployment to settle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=20"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active Publish to Neocities runs: $active"
+            if [[ "$active" == 0 ]]; then break; fi
+            sleep 5
+          done
+          json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+          [[ "$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")" == 0 ]]
+
+      - name: Reset to current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Replace Easter Island art and mix timestamped Trump post into MAGAHEADS
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pillow
+          old_art='Canada/assets/magaheads-moai-tinfoil-suits-september-2-2026.jpg'
+          new_art='Canada/assets/trump-truth-social-just-watch-september-3-2026.jpg'
+          tmp="$(mktemp --suffix=.jpg)"
+          if curl -L --fail --show-error --retry 3 --retry-all-errors \
+            'https://am11.mediaite.com/med/cnt/uploads/2026/09/Screenshot-2026-09-03-at-12-14-47-PM.jpg' -o "$tmp"; then
+            echo 'Downloaded preserved Truth Social screenshot.'
+          else
+            echo 'Screenshot download failed; generating a faithful editorial reproduction.'
+            rm -f "$tmp"
+            tmp="$(mktemp --suffix=.png)"
+            TMP_ART="$tmp" python3 - <<'PY'
+          from PIL import Image,ImageDraw,ImageFont
+          from pathlib import Path
+          import os,textwrap
+          out=Path(os.environ['TMP_ART'])
+          W,H=1600,1000
+          im=Image.new('RGB',(W,H),(244,245,247)); d=ImageDraw.Draw(im)
+          def font(sz,bold=False):
+              p='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf' if bold else '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'
+              return ImageFont.truetype(p,sz)
+          d.rounded_rectangle((120,70,1480,930),radius=28,fill='white',outline=(215,218,223),width=3)
+          d.text((175,118),'TRUTH SOCIAL',font=font(32,True),fill=(45,82,181))
+          d.ellipse((175,190,275,290),fill=(221,66,48)); d.text((193,218),'DJT',font=font(28,True),fill='white')
+          d.text((305,190),'Donald J. Trump',font=font(36,True),fill=(25,28,33))
+          d.text((305,240),'@realDonaldTrump  ·  11:14 a.m. ET',font=font(25),fill=(100,105,112))
+          text='It is very good for Canadian Politicians like Prime Minister Carney to make President Donald J. Trump “the enemy,” until their Economy collapses, then it will prove to be very bad for Politics — Worse than anything that has ever happened to a Canadian Politician. Just watch! President DONALD J. TRUMP'
+          y=340
+          for line in textwrap.wrap(text,width=57):
+              d.text((175,y),line,font=font(35),fill=(28,31,35)); y+=54
+          d.line((175,820,1425,820),fill=(225,227,230),width=2)
+          d.text((175,850),'Status 117207758594429845  ·  Sept. 3, 2026',font=font(22),fill=(115,119,125))
+          im.save(out,'PNG')
+          PY
+          fi
+          TMP_ART="$tmp" NEW_ART="$new_art" python3 - <<'PY'
+          from PIL import Image
+          import os
+          src=os.environ['TMP_ART']; dst=os.environ['NEW_ART']
+          im=Image.open(src).convert('RGB')
+          # Re-save to strip metadata while preserving visible pixels.
+          im.save(dst,'JPEG',quality=92,optimize=True)
+          print('Truth Social art:',im.size)
+          PY
+          rm -f "$tmp"
+          test -s "$new_art"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime, timezone
+          from zoneinfo import ZoneInfo
+          import re
+
+          C=Path('Canada')
+          H=C/'index.html'
+          A=C/'magaheads-washington-canada-message-september-2-2026.html'
+          OLD='assets/magaheads-moai-tinfoil-suits-september-2-2026.jpg'
+          NEW='assets/trump-truth-social-just-watch-september-3-2026.jpg'
+          now=datetime.now(ZoneInfo('America/Toronto'))
+          tm=now.strftime('%-I:%M %p').replace('AM','A.M.').replace('PM','P.M.').lower()
+          tm_upper=tm.upper()
+          short=f'Sept. 3, 2026 · {tm} ET'
+          band=now.strftime('%B %-d, %Y · %-I:%M %p ET').upper().replace(' AM ET',' A.M. ET').replace(' PM ET',' P.M. ET')
+
+          home=H.read_text(encoding='utf-8')
+          protected=['CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','Guide to Manipulation and Deceit','id="must-read-library"','ticker-speed-controller','var pxPerSecond=125','LEGACY_DEPLOY_GUARD: How Lying Works','OTTAWA PUTS $15.9 MILLION INTO WINNIPEG MANUFACTURING AFTER U.S. TARIFF ESCALATION']
+          missing=[x for x in protected if x not in home]
+          if missing: raise SystemExit('Unsafe homepage state; missing '+', '.join(missing))
+          m=re.search(r'(<!-- CANADA_LEAD_BEGIN -->)(.*?)(<!-- CANADA_LEAD_END -->)',home,re.S)
+          if not m: raise SystemExit('Protected lead block not found')
+          lead=m.group(2)
+          if 'MAGAHEADS: CARNEY ANSWERS TRUMP’S ‘JUST WATCH’ WARNING' not in lead: raise SystemExit('Unexpected lead headline')
+          if OLD not in lead: raise SystemExit('Expected Easter Island lead art reference not found')
+          lead=lead.replace(OLD,NEW,1)
+          lead=lead.replace('alt="Editorial illustration of moai statues in business suits and foil hats beneath storm clouds"','alt="Screenshot of Donald Trump’s September 3 Truth Social post warning that Canada’s economy would collapse"',1)
+          lead=re.sub(r'<p class="meta">Updated Sept\. 3, 2026 · .*?</p>',f'<p class="meta">Updated {short}</p>',lead,count=1)
+          home=home[:m.start(2)]+lead+home[m.end(2):]
+          home,n=re.subn(r'<div class="top">UPDATED · .*?</div>',f'<div class="top">UPDATED · {band}</div>',home,count=1,flags=re.S)
+          if n!=1: raise SystemExit('Could not update homepage band timestamp')
+          if OLD in re.search(r'<!-- CANADA_LEAD_BEGIN -->(.*?)<!-- CANADA_LEAD_END -->',home,re.S).group(1): raise SystemExit('Old lead art survived')
+          for x in protected:
+              if x not in home: raise SystemExit('Protected homepage marker lost: '+x)
+          H.write_text(home,encoding='utf-8')
+
+          t=A.read_text(encoding='utf-8')
+          if OLD not in t: raise SystemExit('Expected old MAGAHEADS art reference missing from article')
+          t=t.replace(OLD,NEW,1)
+          t=t.replace('alt="Editorial illustration of moai statues in business suits and foil hats beneath storm clouds"','alt="Screenshot of Donald Trump’s September 3 Truth Social post warning that Canada’s economy would collapse"',1)
+          t,n=re.subn(r'<div class="top">UPDATED · .*?</div>',f'<div class="top">UPDATED · SEPTEMBER 3, 2026 · {tm_upper} ET</div>',t,count=1,flags=re.S)
+          if n!=1: raise SystemExit('Could not update article band')
+          t,n=re.subn(r'<p class="dek">.*?</p>',"<p class=\"dek\">Mark Carney rejected the U.S. account of the stalled talks. At 11:14 a.m. ET, Donald Trump warned that making him ‘the enemy’ would end with Canada’s economy collapsing — adding the president’s own threat to a sequence of public pressure from Washington.</p>",t,count=1,flags=re.S)
+          if n!=1: raise SystemExit('Could not update dek')
+          t,n=re.subn(r'<p class="meta">Updated Sept\. 3, 2026 · .*?</p>',f'<p class="meta">Updated {short}</p>',t,count=1)
+          if n!=1: raise SystemExit('Could not update article meta')
+
+          oldp="<p>Shortly after those remarks, President Donald Trump made the pressure explicit in a Truth Social post. He said Canadian politicians, including Carney, could make him ‘the enemy’ until Canada’s economy collapsed; he said the political result would be worse than anything that had happened to a Canadian politician, then ended the post: ‘Just watch!’</p>"
+          newp="<p>At 11:14 a.m. ET, Trump posted his own Canada message on Truth Social. The archived post records him writing that it was ‘very good’ for Canadian politicians such as Carney to make him ‘the enemy’ until Canada’s economy collapses. He said the political consequences would then be ‘Worse than anything that has ever happened to a Canadian Politician,’ and ended: ‘Just watch!’</p>"
+          if oldp not in t: raise SystemExit('Expected Trump paragraph not found')
+          t=t.replace(oldp,newp,1)
+
+          oldp="<p>Of the Trump posts verified on Sept. 3, this is the one that directly addresses Canada and the trade dispute. MAGAHEADS is treating it as the day’s central presidential message on Canada, rather than importing unrelated White House social-media posts into the record.</p>"
+          newp="<p>The timestamp places the president’s intervention in the same day’s documented sequence rather than treating it as an undated social-media threat. The archive identifies the original Truth Social status as 117207758594429845 and records the post at 11:14 a.m. EDT; a preserved capture was made two minutes later. Contemporary live coverage also reproduced the message.</p><p>Among Trump’s Sept. 3 posts, this was the one that directly addressed Canada and the trade dispute. It moved beyond the administration’s earlier argument about who caused the negotiating breakdown: Trump explicitly tied political opposition to him to a warning that Canada’s economy would collapse.</p>"
+          if oldp not in t: raise SystemExit('Expected MAGAHEADS treatment paragraph not found')
+          t=t.replace(oldp,newp,1)
+
+          oldp="<p>The message is the clearest presidential threat in the public sequence Canada at War has been tracking in MAGAHEADS. It came after repeated appearances in which senior administration figures presented the impasse as Canada’s choice and forecast that Ottawa would have to return on less favourable terms.</p>"
+          newp="<p>The post was the clearest presidential warning in the verified public sequence examined in this briefing. It followed repeated appearances in which senior administration figures presented the impasse as Canada’s choice and forecast that Ottawa would have to return on less favourable terms.</p>"
+          if oldp not in t: raise SystemExit('Expected self-reference paragraph not found')
+          t=t.replace(oldp,newp,1)
+
+          old_lut="<p>On Wednesday, Peter Navarro, the White House trade adviser, used C-SPAN’s <em>Washington Journal</em> to blame ‘politics across our border’ for the failure of the talks and to attack Carney personally. Bessent told Fox News’s <em>Fox &amp; Friends</em> that the dispute had ‘virtually no impact on American prices,’ said an agreement had been on the ‘1-yard line,’ and suggested a later offer would not be as favourable. Lutnick made the same basic case in CNBC and Bloomberg appearances, saying Canada had added late demands and walked away for political reasons.</p>"
+          new_lut=old_lut+"<p>In recounting one exchange, Lutnick said he asked a Canadian counterpart whether Canada was trying to blow up the deal and claimed the answer was: ‘I’m not allowed to say that.’ No direct Canadian confirmation of that anecdote has been located; it remains Lutnick’s account of the conversation.</p>"
+          if old_lut not in t: raise SystemExit('Expected background paragraph not found')
+          t=t.replace(old_lut,new_lut,1)
+
+          t=t.replace('https://truthsocial.com/@realDonaldTrump/posts/117207758594429845','https://truthsocial.com/@realDonaldTrump/117207758594429845')
+          truth='<a href="https://truthsocial.com/@realDonaldTrump/117207758594429845">Truth Social — Donald Trump, Sept. 3 post</a><br>'
+          if truth not in t: raise SystemExit('Correct Truth Social source not found after URL repair')
+          archive='<a href="https://trumpstruth.org/statuses/41496">Trump’s Truth archive — 11:14 a.m. EDT timestamp and preserved post</a><br>'
+          if 'trumpstruth.org/statuses/41496' not in t:
+              t=t.replace(truth,truth+archive,1)
+          media='<a href="https://www.mediaite.com/media/news/just-watch-trump-slams-canadian-pm-with-ominous-threat-against-making-donald-j-trump-the-enemy-in-trade-war/">Mediaite — preserved screenshot of the Truth Social post</a><br>'
+          if 'mediaite.com/media/news/just-watch-trump' not in t:
+              t=t.replace(archive,archive+media,1)
+          if '11:14 a.m. ET' not in t or '117207758594429845' not in t: raise SystemExit('Timestamp/status verification did not survive')
+          A.write_text(t,encoding='utf-8')
+          print('MAGAHEADS UPDATE PATCHED',short)
+          PY
+
+          grep -R -F 'assets/magaheads-moai-tinfoil-suits-september-2-2026.jpg' Canada/index.html Canada/magaheads-washington-canada-message-september-2-2026.html && { echo 'Old Easter Island art is still referenced' >&2; exit 1; } || true
+          git rm -f "$old_art"
+          python3 scripts/validate_canada_publish.py
+          grep -Fq '11:14 a.m. ET' Canada/magaheads-washington-canada-message-september-2-2026.html
+          grep -Fq 'trumpstruth.org/statuses/41496' Canada/magaheads-washington-canada-message-september-2-2026.html
+          grep -Fq 'assets/trump-truth-social-just-watch-september-3-2026.jpg' Canada/index.html
+          grep -Fq 'assets/trump-truth-social-just-watch-september-3-2026.jpg' Canada/magaheads-washington-canada-message-september-2-2026.html
+          test -s "$new_art"
+
+      - name: Commit final source state to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'canada-at-war-magaheads[bot]'
+          git config user.email 'canada-at-war-magaheads[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/magaheads-washington-canada-message-september-2-2026.html Canada/assets/trump-truth-social-just-watch-september-3-2026.jpg
+          git status --short
+          git commit -m 'Canada: add timestamped Trump Truth Social to MAGAHEADS'
+          git pull --rebase origin main
+          python3 scripts/validate_canada_publish.py
+          git push origin HEAD:main
+          echo "FINAL_SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Confirm source on current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]]
+          grep -Fq '11:14 a.m. ET' Canada/magaheads-washington-canada-message-september-2-2026.html
+          grep -Fq 'trump-truth-social-just-watch-september-3-2026.jpg' Canada/index.html
+          test ! -e Canada/assets/magaheads-moai-tinfoil-suits-september-2-2026.jpg
+          echo "FINAL SOURCE ON MAIN: $(git rev-parse HEAD)"
