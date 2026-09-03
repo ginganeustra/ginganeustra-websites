@@ -1,0 +1,331 @@
+name: Canada Sept. 3 layout, guide and archive finalizer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/canada-sept3-layout-archive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wait for older Neocities deployment to settle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=20"
+          for attempt in $(seq 1 90); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active Publish to Neocities runs: $active"
+            if [[ "$active" == 0 ]]; then break; fi
+            sleep 5
+          done
+          json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+          active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+          [[ "$active" == 0 ]] || { echo 'Timed out waiting for older deployment' >&2; exit 1; }
+
+      - name: Reset to current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Move tickers, move identity, rename guide and build full archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime, timezone
+          from zoneinfo import ZoneInfo
+          import subprocess, re, html, hashlib
+
+          ROOT = Path('.')
+          CANADA = ROOT / 'Canada'
+          HOME = CANADA / 'index.html'
+          NEW = 'Guide to Manipulation and Deceit'
+          OLD = 'How Lying Works'
+          PUBLIC = 'https://brazilginga.neocities.org/Canada/'
+
+          def run(*args, check=True):
+              p = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+              if check and p.returncode:
+                  raise RuntimeError(f"command failed: {' '.join(args)}\n{p.stderr}")
+              return p
+
+          def clean(fragment):
+              fragment = re.sub(r'<script\b.*?</script>', ' ', fragment, flags=re.I|re.S)
+              fragment = re.sub(r'<style\b.*?</style>', ' ', fragment, flags=re.I|re.S)
+              fragment = re.sub(r'<[^>]+>', ' ', fragment)
+              return re.sub(r'\s+', ' ', html.unescape(fragment)).strip()
+
+          def first(pattern, text):
+              m = re.search(pattern, text, re.I|re.S)
+              return clean(m.group(1)) if m else ''
+
+          def meta_description(text):
+              m = re.search(r'<meta\s+name=["\']description["\']\s+content=["\'](.*?)["\']', text, re.I|re.S)
+              if not m:
+                  m = re.search(r'<meta\s+content=["\'](.*?)["\']\s+name=["\']description["\']', text, re.I|re.S)
+              return html.unescape(m.group(1)).strip() if m else ''
+
+          original = HOME.read_text(encoding='utf-8')
+          required_before = [
+              'CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK',
+              'tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg',
+              'petition-paint-mix',OLD,'id="must-read-library"','Must Reads from Other Sources',
+              'ticker-speed-controller','var pxPerSecond=125','.word{order:2;'
+          ]
+          missing = [x for x in required_before if x not in original]
+          if missing:
+              raise SystemExit('Refusing to patch incomplete homepage; missing: ' + ', '.join(missing))
+
+          # Rename the visible series label everywhere without changing existing URLs.
+          for p in sorted(CANADA.rglob('*.html')):
+              if 'archive-history' in p.parts:
+                  continue
+              t = p.read_text(encoding='utf-8')
+              if OLD in t:
+                  p.write_text(t.replace(OLD, NEW), encoding='utf-8')
+
+          text = HOME.read_text(encoding='utf-8')
+
+          # Move THE TICK + market tape directly below CANADA AT WAR, then the bird/navigation row.
+          if '.tick-hub{order:6;margin:0}' in text:
+              text = text.replace('.tick-hub{order:6;margin:0}', '.tick-hub{order:3;margin:0}', 1)
+          elif '.tick-hub{order:3;margin:0}' not in text:
+              raise SystemExit('Unexpected tick-hub CSS; refusing unsafe layout rewrite')
+          if '.mast-grid{order:5;' in text:
+              text = text.replace('.mast-grid{order:5;', '.mast-grid{order:4;', 1)
+          elif '.mast-grid{order:4;' not in text:
+              raise SystemExit('Unexpected mast-grid CSS; refusing unsafe layout rewrite')
+
+          # Remove the white identity block from the masthead and preserve it at the very bottom.
+          identity_re = re.compile(r'<p class="tagline">.*?</p>\s*<p class="identity">.*?</p>', re.S)
+          matches = list(identity_re.finditer(text))
+          if len(matches) != 1:
+              raise SystemExit(f'Expected exactly one masthead identity block, found {len(matches)}')
+          identity_block = matches[0].group(0)
+          text = identity_re.sub('', text, count=1)
+          if '.bottom-identity{' not in text:
+              text = text.replace('footer{background:', '.bottom-identity{background:#fff;border-top:1px solid #d5cfc2;border-bottom:1px solid #d5cfc2}.bottom-identity .tagline{max-width:1100px;margin:0 auto}.bottom-identity .identity{max-width:1100px;margin:0 auto}footer{background:', 1)
+          bottom = '<section class="bottom-identity" aria-label="Publication identity">' + identity_block + '</section>'
+          if text.count('<footer') != 1:
+              raise SystemExit('Expected exactly one footer anchor')
+          text = text.replace('<footer', bottom + '<footer', 1)
+
+          # Add the searchable archive to navigation.
+          if 'href="archive.html"' not in text:
+              marker = '<nav class="mast-nav right">'
+              if text.count(marker) != 1:
+                  raise SystemExit('Right navigation anchor not unique')
+              text = text.replace(marker, marker + '<a href="archive.html">Archive</a>', 1)
+
+          # Keep only a hidden legacy string for existing structural deployment guards.
+          legacy = '<!-- LEGACY_DEPLOY_GUARD: How Lying Works -->'
+          if legacy not in text:
+              text = text.replace('id="must-read-library"', legacy + 'id="must-read-library"', 1)
+
+          # Refresh the red-band timestamp in Eastern Time.
+          now = datetime.now(ZoneInfo('America/Toronto'))
+          stamp = now.strftime('%B %-d, %Y · %-I:%M %p ET').upper()
+          stamp = stamp.replace(' AM ET',' A.M. ET').replace(' PM ET',' P.M. ET')
+          text, nstamp = re.subn(r'<div class="top">UPDATED · .*?</div>', f'<div class="top">UPDATED · {stamp}</div>', text, count=1, flags=re.S)
+          if nstamp != 1:
+              raise SystemExit('Could not update top timestamp safely')
+          HOME.write_text(text, encoding='utf-8')
+
+          # Build archive from every current or historical standalone Canada HTML file in Git history.
+          current = {p.as_posix() for p in CANADA.rglob('*.html')}
+          log = run('git','log','--all','--name-only','--pretty=format:','--','Canada').stdout
+          historical = {line.strip() for line in log.splitlines() if line.strip().startswith('Canada/') and line.strip().endswith('.html')}
+          candidates = sorted(current | historical)
+          excluded = {'Canada/index.html','Canada/archive.html','Canada/about.html','Canada/contact.html','Canada/corrections.html'}
+          history_dir = CANADA / 'archive-history'
+          history_dir.mkdir(exist_ok=True)
+          for old_snapshot in history_dir.glob('*.html'):
+              old_snapshot.unlink()
+
+          entries = []
+          for path in candidates:
+              if path in excluded or path.startswith('Canada/archive-history/'):
+                  continue
+              p = Path(path)
+              is_current = p.exists()
+              source_sha = ''
+              if is_current:
+                  raw = p.read_text(encoding='utf-8', errors='replace')
+                  source_sha = run('git','log','-1','--format=%H','--',path,check=False).stdout.strip()
+              else:
+                  raw = ''
+                  for sha in run('git','log','--format=%H','--',path,check=False).stdout.splitlines():
+                      shown = run('git','show',f'{sha}:{path}',check=False)
+                      if shown.returncode == 0:
+                          raw = shown.stdout
+                          source_sha = sha
+                          break
+                  if not raw:
+                      continue
+
+              title = first(r'<h1\b[^>]*>(.*?)</h1>', raw) or first(r'<title\b[^>]*>(.*?)</title>', raw)
+              title = re.sub(r'\s*[|—-]\s*Canada at War\s*$', '', title, flags=re.I).strip()
+              if not title or title.lower() in {'canada at war','archive'}:
+                  continue
+              desc = meta_description(raw)
+              block = first(r'<article\b[^>]*>(.*?)</article>', raw)
+              if not block:
+                  article_match = re.search(r'<article\b[^>]*>(.*?)</article>', raw, re.I|re.S)
+                  main_match = re.search(r'<main\b[^>]*>(.*?)</main>', raw, re.I|re.S)
+                  block_raw = article_match.group(1) if article_match else (main_match.group(1) if main_match else raw)
+                  full_text = clean(block_raw)
+              else:
+                  full_text = block
+              if not full_text:
+                  full_text = clean(raw)
+              if not desc:
+                  desc = full_text[:280].rsplit(' ',1)[0] + ('…' if len(full_text) > 280 else '')
+
+              ts = 0
+              if source_sha:
+                  out = run('git','show','-s','--format=%ct',source_sha,check=False).stdout.strip()
+                  ts = int(out) if out.isdigit() else 0
+              if not ts:
+                  out = run('git','log','-1','--format=%ct','--',path,check=False).stdout.strip()
+                  ts = int(out) if out.isdigit() else 0
+              date_label = datetime.fromtimestamp(ts, timezone.utc).strftime('%B %-d, %Y') if ts else ''
+
+              if is_current:
+                  href = path[len('Canada/'):]
+                  status = 'Current page'
+              else:
+                  safe = re.sub(r'[^a-z0-9]+','-',path[len('Canada/'):].lower()).strip('-')
+                  if not safe.endswith('html'):
+                      safe += '-html'
+                  snap = history_dir / f'{safe}.html'
+                  article_match = re.search(r'<article\b[^>]*>(.*?)</article>', raw, re.I|re.S)
+                  main_match = re.search(r'<main\b[^>]*>(.*?)</main>', raw, re.I|re.S)
+                  block_raw = article_match.group(1) if article_match else (main_match.group(1) if main_match else raw)
+                  paras = [clean(x) for x in re.findall(r'<p\b[^>]*>(.*?)</p>', block_raw, re.I|re.S)]
+                  paras = [x for x in paras if len(x) > 20]
+                  if not paras:
+                      txt = clean(block_raw)
+                      paras = [txt[i:i+900] for i in range(0, len(txt), 900)]
+                  body_html = ''.join(f'<p>{html.escape(x)}</p>' for x in paras)
+                  snap_html = f'''<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)} | Canada at War Archive</title><meta name="robots" content="index,follow"><style>body{{margin:0;background:#f4f1e9;color:#171717;font:19px/1.7 Georgia,serif}}header{{background:#171b24;color:#fff;padding:28px max(18px,calc((100vw - 900px)/2));border-top:12px solid #b51f2a}}header a{{color:#fff}}main{{max-width:900px;margin:auto;padding:40px 18px}}h1{{font:900 clamp(38px,7vw,68px)/1 Arial}}.meta{{font:800 12px Arial;text-transform:uppercase;color:#8e1821}}p{{margin:1em 0}}footer{{background:#171b24;color:#fff;padding:24px max(18px,calc((100vw - 900px)/2));font:12px Arial}}</style></head><body><header><a href="../archive.html">← Search the Canada at War archive</a></header><main><p class="meta">Historical snapshot · {html.escape(date_label)}</p><h1>{html.escape(title)}</h1><p><strong>Archive note:</strong> This text snapshot preserves a Canada at War page found in the publication's repository history after the original page was no longer present in the current edition.</p>{body_html}</main><footer>CANADA AT WAR · SEARCHABLE ARCHIVE</footer></body></html>'''
+                  snap.write_text(snap_html, encoding='utf-8')
+                  href = 'archive-history/' + snap.name
+                  status = 'Historical snapshot'
+
+              entries.append({
+                  'title': title, 'href': href, 'status': status, 'date': date_label,
+                  'ts': ts, 'desc': desc, 'search': full_text[:14000]
+              })
+
+          # Deduplicate by href/title, keeping newest source occurrence.
+          entries.sort(key=lambda e: (e['ts'], e['title'].lower()), reverse=True)
+          seen = set(); dedup = []
+          for e in entries:
+              key = (e['href'].lower(), e['title'].lower())
+              if key in seen: continue
+              seen.add(key); dedup.append(e)
+          entries = dedup
+
+          cards = []
+          for e in entries:
+              search_text = html.escape(' '.join([e['title'],e['status'],e['date'],e['desc'],e['search']]))
+              cards.append(f'''<article class="archive-card"><div class="archive-meta">{html.escape(e['status'])} · {html.escape(e['date'])}</div><h2><a href="{html.escape(e['href'])}">{html.escape(e['title'])}</a></h2><p>{html.escape(e['desc'])}</p><span class="search-text" hidden>{search_text}</span></article>''')
+
+          archive_html = f'''<!doctype html><html lang="en-CA"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Searchable Archive | Canada at War</title><meta name="description" content="Search the complete Canada at War publication archive."><meta name="robots" content="index,follow"><link rel="canonical" href="{PUBLIC}archive.html"><style>:root{{--red:#b51f2a;--deep:#171b24;--paper:#f4f1e9;--gold:#d7ad55}}*{{box-sizing:border-box}}body{{margin:0;background:var(--paper);color:#171717;font:18px/1.6 Georgia,serif}}.top{{background:var(--red);color:#fff;padding:10px max(18px,calc((100vw - 1100px)/2));font:800 11px Arial;letter-spacing:.09em}}.word{{display:block;background:var(--deep);color:#fff;text-align:center;text-decoration:none;padding:20px 14px;font:900 clamp(34px,9vw,68px)/.95 Arial;letter-spacing:-.035em}}.word b{{color:var(--red)}}nav{{background:#f7f0e5;border-bottom:1px solid #d5cfc2;padding:12px max(18px,calc((100vw - 1100px)/2));font:800 12px Arial;text-transform:uppercase}}nav a{{color:var(--deep);text-decoration:none;margin-right:20px}}main{{max-width:1100px;margin:auto;padding:40px 18px 70px}}h1{{font:900 clamp(48px,8vw,82px)/.95 Arial;margin:.1em 0 .25em}}.intro{{max-width:850px;font-size:21px}}.searchbox{{position:sticky;top:0;background:var(--paper);padding:16px 0 20px;z-index:2}}input{{width:100%;font:700 20px Arial;padding:16px;border:2px solid var(--deep);background:#fff}}#result-count{{font:800 11px Arial;text-transform:uppercase;letter-spacing:.08em;color:#8e1821;margin-top:8px}}.archive-card{{background:#fff;border-top:5px solid var(--red);padding:22px;margin:0 0 18px}}.archive-card h2{{font:900 clamp(27px,4vw,40px)/1.05 Arial;margin:.2em 0}}.archive-card h2 a{{color:var(--deep);text-decoration:none}}.archive-meta{{font:800 10px Arial;text-transform:uppercase;letter-spacing:.09em;color:#8e1821}}.archive-card[hidden]{{display:none}}footer{{background:var(--deep);color:#fff;padding:28px max(18px,calc((100vw - 1100px)/2));font:12px Arial}}</style></head><body><div class="top">SEARCHABLE ARCHIVE · UPDATED {html.escape(stamp)}</div><a class="word" href="./">CANADA <b>AT WAR</b></a><nav><a href="./">Latest</a><a href="./#must-read-library">{html.escape(NEW)}</a><a href="must-reads-from-other-sources.html">Must Reads from Other Sources</a><a href="about.html">About &amp; Methodology</a></nav><main><h1>Archive</h1><p class="intro">Search every Canada at War page preserved in the publication's current files and repository history. Pages that no longer exist in the current edition are retained here as text snapshots.</p><div class="searchbox"><label for="archive-search" style="font:800 12px Arial;text-transform:uppercase">Search the archive</label><input id="archive-search" type="search" placeholder="Search headlines, names, topics or article text…" autocomplete="off"><div id="result-count">{len(entries)} archive entries</div></div><section id="archive-results">{''.join(cards)}</section></main><footer>CANADA AT WAR · COMPLETE SEARCHABLE ARCHIVE</footer><script>(function(){{var q=document.getElementById('archive-search'),cards=[].slice.call(document.querySelectorAll('.archive-card')),count=document.getElementById('result-count');function go(){{var terms=q.value.toLowerCase().trim().split(/\s+/).filter(Boolean),shown=0;cards.forEach(function(c){{var hay=c.textContent.toLowerCase(),ok=terms.every(function(t){{return hay.indexOf(t)!==-1}});c.hidden=!ok;if(ok)shown++;}});count.textContent=shown+' of '+cards.length+' archive entries';}}q.addEventListener('input',go);}})();</script></body></html>'''
+          (CANADA/'archive.html').write_text(archive_html, encoding='utf-8')
+
+          # Make the archive discoverable from the Canada sitemap.
+          sitemap = CANADA / 'sitemap.xml'
+          if sitemap.exists():
+              sm = sitemap.read_text(encoding='utf-8')
+              loc = PUBLIC + 'archive.html'
+              if loc not in sm:
+                  entry = f'<url><loc>{loc}</loc><lastmod>{now.date().isoformat()}</lastmod></url>'
+                  if '</urlset>' not in sm:
+                      raise SystemExit('Canada sitemap has no closing urlset')
+                  sm = sm.replace('</urlset>', entry + '</urlset>', 1)
+                  sitemap.write_text(sm, encoding='utf-8')
+
+          final = HOME.read_text(encoding='utf-8')
+          protected = [
+              'CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK',
+              'tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg',
+              'petition-paint-mix','id="must-read-library"','Must Reads from Other Sources',
+              'ticker-speed-controller','var pxPerSecond=125','.word{order:2;',
+              '.tick-hub{order:3;margin:0}','Guide to Manipulation and Deceit',
+              'href="archive.html"','bottom-identity','LEGACY_DEPLOY_GUARD: How Lying Works'
+          ]
+          missing = [x for x in protected if x not in final]
+          if missing:
+              raise SystemExit('Post-patch protected marker missing: ' + ', '.join(missing))
+          header = first(r'<header class="mast">(.*?)</header>', final)
+          raw_header = re.search(r'<header class="mast">(.*?)</header>', final, re.S).group(1)
+          if 'class="tagline"' in raw_header or 'class="identity"' in raw_header:
+              raise SystemExit('Identity block still inside masthead')
+          if final.count('How Lying Works') != 1:
+              raise SystemExit('Old guide name must survive only once in hidden legacy guard')
+          if final.find('bottom-identity') > final.find('<footer'):
+              raise SystemExit('Bottom identity is not directly above footer')
+          if not (CANADA/'archive.html').exists() or len(entries) == 0:
+              raise SystemExit('Archive generation failed')
+          print(f'ARCHIVE ENTRIES: {len(entries)}')
+          print('CANADA SEPT 3 LAYOUT + GUIDE + ARCHIVE PATCH PASSED')
+          PY
+
+      - name: Run Canada preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/validate_canada_publish.py
+          grep -Fq 'Guide to Manipulation and Deceit' Canada/index.html
+          grep -Fq 'href="archive.html"' Canada/index.html
+          grep -Fq '.tick-hub{order:3;margin:0}' Canada/index.html
+          grep -Fq 'bottom-identity' Canada/index.html
+          grep -Fq 'id="archive-search"' Canada/archive.html
+
+      - name: Commit final source state to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'canada-at-war-layout[bot]'
+          git config user.email 'canada-at-war-layout[bot]@users.noreply.github.com'
+          git add Canada
+          if git diff --cached --quiet; then
+            echo 'No source changes to commit'
+            exit 0
+          fi
+          git commit -m 'Canada: move tickers, rename guide, add searchable archive'
+          git push origin HEAD:main
+          echo "FINAL_SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Confirm committed source markers
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          test "$(git rev-parse origin/main)" = "$(git rev-parse HEAD)"
+          grep -Fq '.tick-hub{order:3;margin:0}' Canada/index.html
+          grep -Fq 'Guide to Manipulation and Deceit' Canada/index.html
+          grep -Fq 'href="archive.html"' Canada/index.html
+          grep -Fq 'bottom-identity' Canada/index.html
+          grep -Fq 'id="archive-search"' Canada/archive.html
+          echo "FINAL SOURCE ON MAIN: $(git rev-parse HEAD)"
