@@ -1,0 +1,106 @@
+name: Canada Sept. 3 MAGAHEADS Truth Social live verification
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-sept3-magaheads-truth-live-verify.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm final source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'MAGAHEADS: CARNEY ANSWERS TRUMP’S ‘JUST WATCH’ WARNING' Canada/index.html
+          grep -Fq 'assets/trump-truth-social-just-watch-september-3-2026.jpg' Canada/index.html
+          grep -Fq '11:14 a.m. ET' Canada/magaheads-washington-canada-message-september-2-2026.html
+          grep -Fq 'trumpstruth.org/statuses/41496' Canada/magaheads-washington-canada-message-september-2-2026.html
+          grep -Fq '117207758594429845' Canada/magaheads-washington-canada-message-september-2-2026.html
+          test -s Canada/assets/trump-truth-social-just-watch-september-3-2026.jpg
+          test ! -e Canada/assets/magaheads-moai-tinfoil-suits-september-2-2026.jpg
+          python3 scripts/validate_canada_publish.py
+
+      - name: Wait for all Publish to Neocities runs to settle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=20"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active Publish to Neocities runs: $active"
+            if [[ "$active" == 0 ]]; then exit 0; fi
+            sleep 5
+          done
+          echo 'Timed out waiting for deployments' >&2
+          exit 1
+
+      - name: Verify public homepage, MAGAHEADS story and Truth Social art
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA::8}"
+          get(){
+            local u="$1" o="$2" c ok=0
+            for n in $(seq 1 18); do
+              c="$(curl -L -sS -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' -o "$o" -w '%{http_code}' "${u}?verify=${short}-${n}-$(date +%s)" || true)"
+              if [[ "$c" == 200 ]]; then ok=1; break; fi
+              sleep 4
+            done
+            [[ "$ok" == 1 ]] || { echo "HTTP verification failed: $u ($c)" >&2; exit 1; }
+          }
+          home="$(mktemp)"; article="$(mktemp)"; image="$(mktemp --suffix=.jpg)"
+          get 'https://brazilginga.neocities.org/Canada/' "$home"
+          get 'https://brazilginga.neocities.org/Canada/magaheads-washington-canada-message-september-2-2026.html' "$article"
+          get 'https://brazilginga.neocities.org/Canada/assets/trump-truth-social-just-watch-september-3-2026.jpg' "$image"
+          python3 - "$home" "$article" "$image" <<'PY'
+          import sys,struct
+          home=open(sys.argv[1],encoding='utf-8').read()
+          article=open(sys.argv[2],encoding='utf-8').read()
+          image=open(sys.argv[3],'rb').read()
+          headline='MAGAHEADS: CARNEY ANSWERS TRUMP’S ‘JUST WATCH’ WARNING'
+          newart='assets/trump-truth-social-just-watch-september-3-2026.jpg'
+          oldart='assets/magaheads-moai-tinfoil-suits-september-2-2026.jpg'
+          assert headline in home, 'headline missing from public homepage'
+          assert newart in home, 'new Truth Social art missing from homepage'
+          assert oldart not in home, 'old Easter Island art still referenced by homepage'
+          assert 'OTTAWA PUTS $15.9 MILLION INTO WINNIPEG MANUFACTURING AFTER U.S. TARIFF ESCALATION' in home, 'unrelated third story lost'
+          for marker in ['CANADA_AT_WAR_MASTHEAD_LOCK','THE TICK','tradingview-widget-container','petition-paint-mix','Guide to Manipulation and Deceit','ticker-speed-controller']:
+              assert marker in home, marker
+          assert headline in article
+          assert newart in article and oldart not in article
+          for marker in ['11:14 a.m. ET','117207758594429845','trumpstruth.org/statuses/41496','truthsocial.com/@realDonaldTrump/117207758594429845']:
+              assert marker in article, marker
+          assert image[:2] == b'\xff\xd8' and image[-2:] == b'\xff\xd9', 'public art is not a complete JPEG'
+          # Read JPEG dimensions from SOF marker.
+          i=2; dims=None; sof={0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF}
+          while i+4 <= len(image):
+              if image[i] != 0xFF: i+=1; continue
+              while i < len(image) and image[i] == 0xFF: i+=1
+              if i>=len(image): break
+              m=image[i]; i+=1
+              if m in {0xD8,0xD9}: continue
+              if m==0xDA: break
+              if i+2>len(image): break
+              n=struct.unpack('>H',image[i:i+2])[0]
+              if m in sof:
+                  h,w=struct.unpack('>HH',image[i+3:i+7]); dims=(w,h); break
+              i+=n
+          assert dims == (1054,382), dims
+          print('PUBLIC HOMEPAGE HTTP 200: TRUTH SOCIAL ART IS THE MAGAHEADS LEAD; EASTER ISLAND ART REMOVED')
+          print('PUBLIC MAGAHEADS STORY HTTP 200: 11:14 A.M. ET TIMESTAMP, STATUS ID, BACKGROUND AND SOURCES VERIFIED')
+          print('PUBLIC TRUTH SOCIAL ART HTTP 200: VALID JPEG 1054x382 VERIFIED')
+          PY
+          rm -f "$home" "$article" "$image"
