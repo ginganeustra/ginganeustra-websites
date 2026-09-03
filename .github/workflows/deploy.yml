@@ -95,6 +95,13 @@ jobs:
             done
           done
 
+      - name: Validate Canada publishing and discovery integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/validate_canada_publish.py
+          python3 scripts/validate_canada_discovery.py
+
       - name: Strip embedded metadata from publication images
         shell: bash
         run: |

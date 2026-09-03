@@ -88,7 +88,7 @@ SVG remains permitted for genuine vector artwork already designed as SVG, but a 
 
 ## Preflight gate
 
-`scripts/validate_canada_publish.py` is the mandatory preflight gate. The existing deployment calls it before files are uploaded.
+`scripts/validate_canada_publish.py` and `scripts/validate_canada_discovery.py` are mandatory preflight gates. The deployment runs both before files are uploaded.
 
 At minimum it verifies:
 
@@ -103,6 +103,26 @@ At minimum it verifies:
 - the current lead article contains its canonical URL and publication metadata.
 
 If preflight fails, deployment stops. Do not bypass or weaken the gate to get a story online.
+
+## Archive and discovery integrity
+
+A homepage story is not publishable until its archive and discovery records agree with the article.
+
+For every story on the current Canada homepage, the following must be true before deployment:
+
+- `Canada/archive.html` contains one searchable card with the current headline and dek;
+- `Canada/sitemap.xml` contains the article URL;
+- root `sitemap.xml` contains the article URL;
+- root `news-sitemap.xml` contains the article URL when the article is within the two-day Google News window;
+- the homepage `<title>` date matches its visible `UPDATED` date.
+
+The canonical publisher calls `scripts/sync_canada_discovery.py` for each story it writes. For a repair or backfill, synchronize every current homepage story with:
+
+```bash
+python3 scripts/sync_canada_discovery.py --from-homepage
+```
+
+Run `python3 scripts/validate_canada_discovery.py` before any deployment. The workflow runs this validator as a fail-closed gate, so uploading a story with stale archive or sitemap data is a deployment failure, not a post-publication cleanup task.
 
 ## Deployment gate
 
@@ -162,6 +182,8 @@ Completion requires successful deployment plus the live acceptance checks above.
 
 When a genuinely new production failure is solved, update this protocol and/or validator so the same failure is automatically detected next time. Prefer adding a deterministic check over adding another paragraph asking a future agent to remember something.
 
+Archive/sitemap drift is covered by `scripts/validate_canada_discovery.py`; do not waive it. Repair the source records, rerun the synchronizer, then deploy.
+
 ## Current known lesson: CBC elephant art
 
 The September 1, 2026 CBC/RNC publication exposed the failure mode this protocol is intended to prevent: a routine raster image was wrapped in SVG, the workflow could succeed while the public browser still showed broken art, and success was reported too early. The permanent rule is direct raster assets plus binary/live validation. Do not repeat the SVG-wrapper approach for routine story art.
@@ -173,8 +195,10 @@ A Canada at War story is done only when all of the following are true:
 - editorial copy is complete;
 - canonical article URL exists;
 - homepage placement matches the editor's instruction;
+- archive card, Canada sitemap, root sitemap and eligible news-sitemap records are current;
+- homepage title date matches the visible update date;
 - image is valid and correctly referenced;
-- preflight passes;
+- both publishing and discovery preflight checks pass;
 - GitHub commit is on `main`;
 - Neocities deployment completes successfully;
 - homepage, article and image pass live verification.

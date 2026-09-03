@@ -21,10 +21,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CANADA = ROOT / "Canada"
 TEMPLATES = CANADA / "templates"
 HOME = CANADA / "index.html"
-SITEMAP = CANADA / "sitemap.xml"
 BASE_URL = "https://brazilginga.neocities.org/Canada/"
 
 sys.path.insert(0, str(ROOT / "scripts"))
+from sync_canada_discovery import read_article, sync
 from validate_canada_publish import inspect_image
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -121,20 +121,6 @@ def build_sources(items: list[dict]) -> str:
             die(f"source URL must be absolute HTTP(S): {url}")
         links.append(f'<a href="{url}">{label}</a>')
     return '<div class="sources"><b>Sources</b>' + "<br>".join(links) + "</div>"
-
-
-def update_sitemap(slug: str, lastmod: str) -> None:
-    text = SITEMAP.read_text(encoding="utf-8")
-    loc = BASE_URL + slug + ".html"
-    home_loc = BASE_URL
-    home_pat = re.compile(rf"<url><loc>{re.escape(home_loc)}</loc><lastmod>.*?</lastmod></url>")
-    text, n = home_pat.subn(f"<url><loc>{home_loc}</loc><lastmod>{html.escape(lastmod)}</lastmod></url>", text, count=1)
-    if n != 1:
-        die("could not update Canada sitemap homepage lastmod")
-    if loc not in text:
-        entry = f"  <url><loc>{loc}</loc><lastmod>{html.escape(lastmod)}</lastmod></url>\n"
-        text = text.replace("</urlset>", entry + "</urlset>", 1)
-    SITEMAP.write_text(text, encoding="utf-8")
 
 
 def main() -> int:
@@ -258,7 +244,7 @@ def main() -> int:
                 die("could not update homepage timestamp banner")
         HOME.write_text(home, encoding="utf-8")
 
-    update_sitemap(slug, lastmod)
+    sync([read_article(f"{slug}.html")])
 
     receipt_dir = CANADA / ".publish"
     receipt_dir.mkdir(exist_ok=True)
