@@ -1,0 +1,69 @@
+name: Canada Sept. 3 Winnipeg live verification
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-sept3-winnipeg-live-verify.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Confirm source state
+        run: |
+          set -euo pipefail
+          grep -Fq 'OTTAWA PUTS $15.9 MILLION INTO WINNIPEG MANUFACTURING AFTER U.S. TARIFF ESCALATION' Canada/index.html
+          ! grep -Fq 'MAGAHEADS: THREE OFFICIALS, ONE CANADA MESSAGE' Canada/index.html
+          grep -Fq 'MAGAHEADS: CARNEY ANSWERS TRUMP’S ‘JUST WATCH’ WARNING' Canada/index.html
+          grep -Fq 'width:calc(100% + 56px)' Canada/index.html
+          grep -Fq 'width:100vw' Canada/winnipeg-manufacturing-tariff-response-september-3-2026.html
+          test -s Canada/assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp
+
+      - name: Wait for Publish to Neocities
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=20"
+          for n in $(seq 1 120); do
+            j="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            a="$(jq '[.workflow_runs[]|select(.status=="queued" or .status=="in_progress")]|length' <<<"$j")"
+            echo "active Publish to Neocities runs: $a"
+            [[ "$a" == 0 ]] && exit 0
+            sleep 5
+          done
+          exit 1
+
+      - name: Verify public homepage, story, archive and art
+        run: |
+          set -euo pipefail
+          get(){ local u="$1" o="$2" c; for n in $(seq 1 18); do c="$(curl -L -sS -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' -o "$o" -w '%{http_code}' "${u}?verify=${GITHUB_SHA::8}-${n}-$(date +%s)" || true)"; [[ "$c" == 200 ]] && return; sleep 4; done; echo "HTTP fail $u $c" >&2; exit 1; }
+          h="$(mktemp)"; a="$(mktemp)"; r="$(mktemp)"; i="$(mktemp)"
+          get 'https://brazilginga.neocities.org/Canada/' "$h"
+          get 'https://brazilginga.neocities.org/Canada/winnipeg-manufacturing-tariff-response-september-3-2026.html' "$a"
+          get 'https://brazilginga.neocities.org/Canada/archive.html' "$r"
+          get 'https://brazilginga.neocities.org/Canada/assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp' "$i"
+          python3 - "$h" "$a" "$r" <<'PY'
+          import sys
+          h=open(sys.argv[1],encoding='utf-8').read(); a=open(sys.argv[2],encoding='utf-8').read(); r=open(sys.argv[3],encoding='utf-8').read()
+          new='OTTAWA PUTS $15.9 MILLION INTO WINNIPEG MANUFACTURING AFTER U.S. TARIFF ESCALATION'; old='MAGAHEADS: THREE OFFICIALS, ONE CANADA MESSAGE'
+          assert new in h and old not in h
+          assert 'MAGAHEADS: CARNEY ANSWERS TRUMP’S ‘JUST WATCH’ WARNING' in h
+          p=[h.find(x) for x in ['CFIB REPORTS FINANCIAL PRESSURE AFTER TARIFF ESCALATION','CANADA AND EUROPE ARE BUNDLING DEFENCE, DIGITAL TRADE AND CRITICAL MINERALS',new,'A SASKATCHEWAN COPPER-ZINC MINE IS NOW PART OF CANADA’S NATIONAL-SECURITY STRATEGY']]
+          assert 0<=p[0]<p[1]<p[2]<p[3],p
+          for x in ['CANADA_AT_WAR_MASTHEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','Guide to Manipulation and Deceit','id="must-read-library"','width:calc(100% + 56px)']: assert x in h,x
+          assert new in a and 'width:100vw' in a and 'Fort Garry Fire Trucks' in a
+          assert 'winnipeg-manufacturing-tariff-response-september-3-2026.html' in r
+          print('PUBLIC HOMEPAGE HTTP 200: NEW STORY IS THIRD; STALE MAGAHEADS CARD REMOVED')
+          print('PUBLIC STORY HTTP 200: BACKGROUND + FULL-WIDTH ART VERIFIED')
+          print('PUBLIC ARCHIVE HTTP 200: NEW STORY SEARCH ENTRY VERIFIED')
+          PY
+          [[ -s "$i" ]]
+          echo "PUBLIC ART HTTP 200: $(wc -c < "$i") bytes"
