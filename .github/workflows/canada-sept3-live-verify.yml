@@ -1,0 +1,99 @@
+name: Canada Sept. 3 layout and archive live verification
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/canada-sept3-live-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for all competing Neocities deploys to settle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=20"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active Publish to Neocities runs: $active"
+            if [[ "$active" == 0 ]]; then exit 0; fi
+            sleep 5
+          done
+          echo 'Timed out waiting for competing deployments' >&2
+          exit 1
+
+      - name: Verify requested Canada changes on public Neocities
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="${GITHUB_SHA::8}"
+          fetch_page() {
+            local url="$1" out="$2" code ok=0
+            for attempt in $(seq 1 15); do
+              code="$(curl -L -sS -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' -o "$out" -w '%{http_code}' "${url}?verify=${short}-${attempt}-$(date +%s)" || true)"
+              if [[ "$code" == 200 ]]; then ok=1; break; fi
+              sleep 4
+            done
+            [[ "$ok" == 1 ]] || { echo "HTTP verification failed: $url ($code)" >&2; exit 1; }
+          }
+
+          home="$(mktemp)"
+          archive="$(mktemp)"
+          fetch_page 'https://brazilginga.neocities.org/Canada/' "$home"
+          fetch_page 'https://brazilginga.neocities.org/Canada/archive.html' "$archive"
+
+          python3 - "$home" "$archive" <<'PY'
+          import re,sys
+          home=open(sys.argv[1],encoding='utf-8').read()
+          archive=open(sys.argv[2],encoding='utf-8').read()
+
+          for marker in [
+              'CANADA_AT_WAR_MASTHEAD_LOCK','THE TICK','tradingview-widget-container',
+              'canada-at-war-goose-eagle-v3.jpg','petition-paint-mix',
+              'Guide to Manipulation and Deceit','href="archive.html"',
+              '.tick-hub{order:3;margin:0}','bottom-identity',
+              'Independent, human-directed reporting and analysis.'
+          ]:
+              assert marker in home, marker
+          assert '.mast-grid{order:4;' in home
+          assert home.count('How Lying Works') == 1, home.count('How Lying Works')
+          h=re.search(r'<header class="mast">(.*?)</header>',home,re.S)
+          assert h, 'mast header'
+          assert 'class="tagline"' not in h.group(1), 'tagline still in masthead'
+          assert 'class="identity"' not in h.group(1), 'identity still in masthead'
+          assert home.find('bottom-identity') < home.find('<footer'), 'bottom identity position'
+          tick=re.search(r'<section class="tick-hub">(.*?)</section>',home,re.S)
+          assert tick and 'class="ticker"' in tick.group(1) and 'class="markets"' in tick.group(1), 'both tickers'
+
+          for marker in ['Searchable Archive | Canada at War','id="archive-search"','archive-card','Guide to Manipulation and Deceit','Search every Canada at War page preserved']:
+              assert marker in archive, marker
+          cards=archive.count('class="archive-card"')
+          assert cards >= 100, cards
+          assert "q.addEventListener('input',go)" in archive
+          print('PUBLIC HOMEPAGE HTTP 200 + REQUESTED LAYOUT MARKERS VERIFIED')
+          print('PUBLIC ARCHIVE HTTP 200 + SEARCH VERIFIED; ENTRIES:',cards)
+          PY
+
+          hist="$(grep -oE 'href="archive-history/[^"]+\.html"' "$archive" | head -n 1 | sed -E 's/^href="|"$//g' || true)"
+          if [[ -n "$hist" ]]; then
+            tmp="$(mktemp)"
+            fetch_page "https://brazilginga.neocities.org/Canada/${hist}" "$tmp"
+            grep -Fq 'Historical snapshot' "$tmp"
+            echo "PUBLIC HISTORICAL SNAPSHOT HTTP 200 VERIFIED: $hist"
+            rm -f "$tmp"
+          fi
+          rm -f "$home" "$archive"
+          echo 'CANADA SEPT 3 FINAL LIVE ACCEPTANCE PASSED'
