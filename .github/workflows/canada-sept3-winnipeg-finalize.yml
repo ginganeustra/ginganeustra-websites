@@ -1,0 +1,180 @@
+name: Canada Sept. 3 Winnipeg manufacturing finalizer
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-sept3-winnipeg-finalize.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - name: Wait for competing Neocities deploys
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=20"
+          for n in $(seq 1 120); do
+            j="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            a="$(jq '[.workflow_runs[]|select(.status=="queued" or .status=="in_progress")]|length' <<<"$j")"
+            echo "active Publish to Neocities runs: $a"
+            [[ "$a" == 0 ]] && break
+            sleep 5
+          done
+          j="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+          [[ "$(jq '[.workflow_runs[]|select(.status=="queued" or .status=="in_progress")]|length' <<<"$j")" == 0 ]]
+
+      - name: Patch current main surgically and commit
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p Canada/assets
+          cat .tmp/winnipeg-art-b64.part{0,1,2,3} | tr -d '\n' | base64 -d > Canada/assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp
+          test -s Canada/assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime, timezone
+          from zoneinfo import ZoneInfo
+          import re, html
+
+          C=Path('Canada'); H=C/'index.html'; A=C/'winnipeg-manufacturing-tariff-response-september-3-2026.html'; R=C/'archive.html'; S=C/'sitemap.xml'; N=Path('news-sitemap.xml')
+          href='winnipeg-manufacturing-tariff-response-september-3-2026.html'
+          art='assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp'
+          head='OTTAWA PUTS $15.9 MILLION INTO WINNIPEG MANUFACTURING AFTER U.S. TARIFF ESCALATION'
+          old='MAGAHEADS: THREE OFFICIALS, ONE CANADA MESSAGE'
+          now=datetime.now(ZoneInfo('America/Toronto'))
+          tm=now.strftime('%-I:%M %p').replace('AM','A.M.').replace('PM','P.M.').lower()
+          stamp=f'Sept. 3, 2026 · {tm} ET'
+          band=now.strftime('%B %-d, %Y · %-I:%M %p ET').upper().replace(' AM ET',' A.M. ET').replace(' PM ET',' P.M. ET')
+          iso=now.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
+
+          article=A.read_text(encoding='utf-8').replace('__PUBLISH_TIME_UPPER__',tm.upper()).replace('__PUBLISH_STAMP__',stamp)
+          A.write_text(article,encoding='utf-8')
+          t=H.read_text(encoding='utf-8')
+          protected=['CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','id="must-read-library"','Guide to Manipulation and Deceit','href="archive.html"','ticker-speed-controller','var pxPerSecond=125','LEGACY_DEPLOY_GUARD: How Lying Works','MAGAHEADS: CARNEY ANSWERS TRUMP’S ‘JUST WATCH’ WARNING']
+          miss=[x for x in protected if x not in t]
+          if miss: raise SystemExit('Unsafe homepage state; missing '+', '.join(miss))
+          pat=re.compile(r'<article class="story story-feature"><div><div class="k"[^>]*>MAGAHEADS · September 2 · Daily briefing</div><h2>'+re.escape(old)+r'</h2>.*?</article>\s*',re.S)
+          t,n=pat.subn('',t,count=1)
+          if n!=1: raise SystemExit(f'Expected one stale MAGAHEADS card; removed {n}')
+          if href in t or head in t: raise SystemExit('Winnipeg card already present')
+          card=f'''<article class="story story-feature"><div><div class="k" style="color:#b51f2a">Tariffs · Manufacturing · Industrial policy · Winnipeg</div><h2>{head}</h2><p>Ottawa is directing $15.9 million to 15 Winnipeg manufacturing projects, including money to bring fire-truck components into Canadian production, automate factories and pursue new markets.</p><a class="read" href="{href}">Read the report →</a><p class="meta" style="color:#666">Published {stamp}</p></div><img src="{art}" alt="AI-generated editorial illustration of machinists reaching upward as Canadian banknotes fall in a machine shop" style="display:block;width:calc(100% + 56px);max-width:none;height:auto;margin:24px -28px -28px;border:0"></article>'''
+          anchor=re.compile(r'(<article class="story story-feature"><div><div class="k"[^>]*>Canada–EU · Defence · Digital trade · Critical minerals</div>.*?href="canada-eu-defence-digital-trade-critical-minerals-september-2-2026\.html".*?</article>)',re.S)
+          m=anchor.search(t)
+          if not m: raise SystemExit('Canada-EU second-story anchor not found')
+          t=t[:m.end()]+'\n'+card+t[m.end():]
+          t,n=re.subn(r'<div class="top">UPDATED · .*?</div>',f'<div class="top">UPDATED · {band}</div>',t,count=1,flags=re.S)
+          if n!=1: raise SystemExit('Top timestamp not updated')
+          p=[t.find(x) for x in ['CFIB REPORTS FINANCIAL PRESSURE AFTER TARIFF ESCALATION','CANADA AND EUROPE ARE BUNDLING DEFENCE, DIGITAL TRADE AND CRITICAL MINERALS',head,'A SASKATCHEWAN COPPER-ZINC MINE IS NOW PART OF CANADA’S NATIONAL-SECURITY STRATEGY']]
+          if not (0<=p[0]<p[1]<p[2]<p[3]): raise SystemExit('Third-story order failed '+repr(p))
+          if old in t: raise SystemExit('Stale MAGAHEADS card survived')
+          for x in protected:
+            if x not in t: raise SystemExit('Protected marker lost: '+x)
+          H.write_text(t,encoding='utf-8')
+
+          r=R.read_text(encoding='utf-8')
+          if href not in r:
+            desc='Ottawa is financing 15 Winnipeg manufacturing projects after the latest U.S. tariff escalation, including in-house production, automation and new-market expansion.'
+            plain=re.sub(r'\s+',' ',html.unescape(re.sub(r'<[^>]+>',' ',article))).strip()[:14000]
+            carda=f'<article class="archive-card"><div class="archive-meta">Current page · September 3, 2026</div><h2><a href="{href}">{head}</a></h2><p>{desc}</p><span class="search-text" hidden>{html.escape(head+" "+desc+" "+plain)}</span></article>'
+            marker='<section id="archive-results">'
+            if marker not in r: raise SystemExit('Archive anchor missing')
+            r=r.replace(marker,marker+carda,1)
+            r,n=re.subn(r'<div id="result-count">(\d+) archive entries</div>',lambda m:f'<div id="result-count">{int(m.group(1))+1} archive entries</div>',r,count=1)
+            if n!=1: raise SystemExit('Archive count missing')
+          r=re.sub(r'SEARCHABLE ARCHIVE · UPDATED .*?</div>',f'SEARCHABLE ARCHIVE · UPDATED {band}</div>',r,count=1)
+          R.write_text(r,encoding='utf-8')
+
+          full='https://brazilginga.neocities.org/Canada/'+href
+          s=S.read_text(encoding='utf-8')
+          s=re.sub(r'(<loc>https://brazilginga\.neocities\.org/Canada/</loc><lastmod>).*?(</lastmod>)',rf'\g<1>{iso}\g<2>',s,count=1)
+          if full not in s: s=s.replace('</urlset>',f'  <url><loc>{full}</loc><lastmod>{iso}</lastmod></url>\n</urlset>',1)
+          S.write_text(s,encoding='utf-8')
+          n=N.read_text(encoding='utf-8')
+          if full not in n:
+            entry=f'  <url><loc>{full}</loc><news:news><news:publication><news:name>Canada at War</news:name><news:language>en</news:language></news:publication><news:publication_date>{now.isoformat(timespec="minutes")}</news:publication_date><news:title>Ottawa puts $15.9 million into Winnipeg manufacturing after U.S. tariff escalation</news:title></news:news></url>\n'
+            n=n.replace('</urlset>',entry+'</urlset>',1)
+          N.write_text(n,encoding='utf-8')
+          print('SURGICAL PATCH PASSED',stamp)
+          PY
+          python3 scripts/validate_canada_publish.py
+          grep -Fq 'OTTAWA PUTS $15.9 MILLION INTO WINNIPEG MANUFACTURING AFTER U.S. TARIFF ESCALATION' Canada/index.html
+          ! grep -Fq 'MAGAHEADS: THREE OFFICIALS, ONE CANADA MESSAGE' Canada/index.html
+          grep -Fq 'width:100vw' Canada/winnipeg-manufacturing-tariff-response-september-3-2026.html
+          git config user.name 'canada-at-war-winnipeg[bot]'
+          git config user.email 'canada-at-war-winnipeg[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/winnipeg-manufacturing-tariff-response-september-3-2026.html Canada/assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp Canada/archive.html Canada/sitemap.xml news-sitemap.xml
+          git rm .tmp/winnipeg-art-b64.part{0,1,2,3}
+          git commit -m 'Canada: Winnipeg manufacturing tariff-response story'
+          git pull --rebase origin main
+          git push origin HEAD:main
+          echo "FINAL_SOURCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Apply deployment-time homepage fixes
+        run: |
+          set -euo pipefail
+          python3 scripts/normalize_canada_ticker_speed.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,urllib.request
+          p=Path('Canada/index.html'); t=p.read_text(encoding='utf-8')
+          try:
+            req=urllib.request.Request('https://www.ourcommons.ca/petitions/en/Petition/Details?Petition=e-7531',headers={'User-Agent':'CanadaAtWar/1.0'})
+            page=urllib.request.urlopen(req,timeout=30).read().decode('utf-8','replace')
+            m=re.search(r'([0-9][0-9,]*)\s+signatures',page,re.I)
+            if m and int(m.group(1).replace(',',''))>=500:
+              f=f"{int(m.group(1).replace(',','')):,}"
+              t=re.sub(r'\b[0-9]{1,3}(?:,[0-9]{3})+ validated signatures\b',f+' validated signatures',t)
+              t=re.sub(r'Pete Hoekstra petition: [0-9]{1,3}(?:,[0-9]{3})+ validated signatures\.',f'Pete Hoekstra petition: {f} validated signatures.',t)
+          except Exception as e: print('petition refresh warning',e)
+          old="""<script>(function(){var c=document.getElementById('petition-paint-mix'),f=document.querySelector('.petition-flash');if(!c||!f)return;var x=c.getContext(2d),a=new Image(),b=new Image(),ready=0,start=0;function draw(img){x.clearRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height)}function loaded(){if(++ready!==2)return;draw(a);f.classList.add('is-ready');start=performance.now();requestAnimationFrame(frame);setTimeout(function(){if(f)f.remove()},7500)}function frame(t){var p=Math.max(0,Math.min(1,(t-start-900)/4300));x.globalAlpha=1;draw(a);x.globalAlpha=p;x.drawImage(b,0,0,c.width,c.height);x.globalAlpha=1;if(p<1)requestAnimationFrame(frame)}a.onload=loaded;b.onload=loaded;a.src='assets/pete-hoekstra-official-portrait.jpg';b.src='assets/statue-of-liberty-petition-watch.jpg';})();</script>"""
+          new="""<script>(function(){var c=document.getElementById('petition-paint-mix'),f=document.querySelector('.petition-flash');if(!c||!f)return;var x=c.getContext(2d),a=new Image(),b=new Image(),ready=0,start=0;function paint(img,cropPortrait,clear){var sw=img.naturalWidth||img.width,sh=img.naturalHeight||img.height;if(cropPortrait)sh=Math.max(1,Math.floor(sh*.68));var scale=Math.max(c.width/sw,c.height/sh),srcW=c.width/scale,srcH=c.height/scale,sx=Math.max(0,(sw-srcW)/2),sy=Math.max(0,(sh-srcH)*.18);if(clear)x.clearRect(0,0,c.width,c.height);x.drawImage(img,sx,sy,srcW,srcH,0,0,c.width,c.height)}function loaded(){if(++ready!==2)return;paint(a,true,true);f.classList.add('is-ready');start=performance.now();requestAnimationFrame(frame);setTimeout(function(){if(f)f.remove()},7500)}function frame(t){var p=Math.max(0,Math.min(1,(t-start-900)/4300));x.globalAlpha=1;paint(a,true,true);x.globalAlpha=p;paint(b,false,false);x.globalAlpha=1;if(p<1)requestAnimationFrame(frame)}a.onload=loaded;b.onload=loaded;a.src='assets/pete-hoekstra-official-portrait.jpg';b.src='assets/statue-of-liberty-petition-watch.jpg';})();</script>"""
+          if old in t: t=t.replace(old,new,1)
+          elif 'Math.floor(sh*.68)' not in t: raise SystemExit('Moving ad script unexpected')
+          p.write_text(t,encoding='utf-8')
+          PY
+
+      - name: Directly deploy requested files
+        env: {NEOCITIES_API_KEY: '${{ secrets.NEOCITIES_API_KEY }}'}
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]]
+          for f in Canada/index.html Canada/winnipeg-manufacturing-tariff-response-september-3-2026.html Canada/assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp Canada/archive.html Canada/sitemap.xml news-sitemap.xml; do
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F "${f}=@${f}" https://neocities.org/api/upload
+          done
+
+      - name: Verify public live state
+        run: |
+          set -euo pipefail
+          get(){ local u="$1" o="$2" c; for n in $(seq 1 18); do c="$(curl -L -sS -o "$o" -w '%{http_code}' "${u}?verify=${FINAL_SOURCE_SHA::8}-${n}-$(date +%s)" || true)"; [[ "$c" == 200 ]] && return; sleep 4; done; echo "HTTP fail $u $c" >&2; exit 1; }
+          h="$(mktemp)"; a="$(mktemp)"; r="$(mktemp)"; i="$(mktemp)"
+          get 'https://brazilginga.neocities.org/Canada/' "$h"
+          get 'https://brazilginga.neocities.org/Canada/winnipeg-manufacturing-tariff-response-september-3-2026.html' "$a"
+          get 'https://brazilginga.neocities.org/Canada/archive.html' "$r"
+          get 'https://brazilginga.neocities.org/Canada/assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp' "$i"
+          python3 - "$h" "$a" "$r" <<'PY'
+          import sys
+          h=open(sys.argv[1],encoding='utf-8').read(); a=open(sys.argv[2],encoding='utf-8').read(); r=open(sys.argv[3],encoding='utf-8').read()
+          new='OTTAWA PUTS $15.9 MILLION INTO WINNIPEG MANUFACTURING AFTER U.S. TARIFF ESCALATION'; old='MAGAHEADS: THREE OFFICIALS, ONE CANADA MESSAGE'
+          assert new in h and old not in h and 'MAGAHEADS: CARNEY ANSWERS TRUMP’S ‘JUST WATCH’ WARNING' in h
+          p=[h.find(x) for x in ['CFIB REPORTS FINANCIAL PRESSURE AFTER TARIFF ESCALATION','CANADA AND EUROPE ARE BUNDLING DEFENCE, DIGITAL TRADE AND CRITICAL MINERALS',new,'A SASKATCHEWAN COPPER-ZINC MINE IS NOW PART OF CANADA’S NATIONAL-SECURITY STRATEGY']]
+          assert 0<=p[0]<p[1]<p[2]<p[3],p
+          for x in ['CANADA_AT_WAR_MASTHEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','Guide to Manipulation and Deceit','id="must-read-library"','width:calc(100% + 56px)']: assert x in h,x
+          assert new in a and 'width:100vw' in a and 'Fort Garry Fire Trucks' in a
+          assert 'winnipeg-manufacturing-tariff-response-september-3-2026.html' in r
+          print('PUBLIC HOMEPAGE HTTP 200: NEW STORY IS THIRD; STALE MAGAHEADS CARD REMOVED')
+          print('PUBLIC STORY HTTP 200: BACKGROUND + FULL-WIDTH ART VERIFIED')
+          print('PUBLIC ARCHIVE HTTP 200: NEW STORY SEARCH ENTRY VERIFIED')
+          PY
+          [[ -s "$i" ]]
+          echo "PUBLIC ART HTTP 200: $(wc -c < "$i") bytes"
