@@ -1,0 +1,1 @@
+Trigger the Sept. 4, 2026 Canada morning publication deployment after the validated batch commit.
