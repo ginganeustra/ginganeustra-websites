@@ -1,0 +1,119 @@
+name: Canada Sept. 4 DOJ Canada final
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-sept4-doj-finalize.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - name: Wait for older Neocities deploys
+        env: {GH_TOKEN: '${{ github.token }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=20"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active normal deploys: $active"
+            [[ "$active" == 0 ]] && break
+            sleep 5
+          done
+          json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+          [[ "$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")" == 0 ]]
+
+      - name: Patch complete current homepage and discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          import re
+          C=Path('Canada'); H=C/'index.html'
+          slug='doj-canada-pause-misunderstanding-trump-fed-september-4-2026.html'
+          art='assets/lady-justice-canada-antitrust-sept4-2026.jpg'
+          headline='DOJ CALLS ‘PAUSE ON CANADA’ A MISUNDERSTANDING — AS WASHINGTON LURCHES THROUGH A DAY OF ERRATIC POLICY'
+          now=datetime.now(ZoneInfo('America/Toronto'))
+          band=now.strftime('UPDATED · %B %-d, %Y · %-I:%M %p ET').upper().replace(' AM ET',' A.M. ET').replace(' PM ET',' P.M. ET')
+          display=now.strftime('Published Sept. 4, 2026 · %-I:%M %p ET').replace('AM','a.m.').replace('PM','p.m.')
+          h=H.read_text(encoding='utf-8')
+          before=h.count('<article class="story')
+          protected=['CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','CANADA_LEAD_BEGIN','CANADA_LEAD_END','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','Guide to Manipulation and Deceit','id="must-read-library"','ticker-speed-controller','var pxPerSecond=125']
+          missing=[x for x in protected if x not in h]
+          if missing: raise SystemExit(f'Protected markers missing before edit: {missing}')
+          if not (C/slug).exists() or not (C/art).exists(): raise SystemExit('Staged article or art missing')
+          hero=f'''<!-- CANADA_LEAD_BEGIN -->\n<section class="hero"><div class="hero-in"><div class="k">United States · Justice Department · Canada–U.S. relations · Analysis</div><h1>{headline}</h1><img src="{art}" alt="AI-generated editorial illustration of a distressed, weeping Lady Justice statue" style="display:block;width:100%;max-width:800px;height:auto;margin:18px auto 26px"><p>A written DOJ antitrust instruction told staff to stop Canada cooperation. The department now says it only meant to delay a meeting. Hours earlier Trump threatened to halt trade with deficit countries unless the Fed cut rates — two separate episodes that turned Friday into a display of extraordinary policy disorder.</p><a class="read" href="{slug}">Read the report →</a><p class="meta">{display}</p></div></section>\n<!-- CANADA_LEAD_END -->'''
+          h,n=re.subn(r'<!-- CANADA_LEAD_BEGIN -->.*?<!-- CANADA_LEAD_END -->',hero,h,count=1,flags=re.S)
+          if n!=1: raise SystemExit('Lead block replacement failed')
+          def rm(text,href):
+              return re.sub(r'<article\b[^>]*>(?:(?!</article>).)*?href="'+re.escape(href)+r'"(?:(?!</article>).)*?</article>\s*','',text,flags=re.S)
+          trade='non-us-exports-record-july-2026-september-3-2026.html'
+          h=rm(rm(h,slug),trade)
+          card=f'''<article class="story story-feature"><div><div class="k" style="color:#b51f2a">Trade diversification · Statistics Canada · Exports</div><h2>CANADA’S NON-U.S. EXPORTS HIT RECORD $25.6 BILLION AS U.S. SHARE FALLS TO 66.3%</h2><p>Canada exported a record $25.6 billion in goods to countries outside the United States in July, pushing non-U.S. markets to 33.7% of merchandise exports. In 2024, the United States accounted for 75.9% of Canadian domestic exports.</p><a class="read" href="{trade}">Read the report →</a></div><img src="assets/mark-carney-smiling-white-house-may-2025.jpg" alt="Prime Minister Mark Carney during a May 2025 White House visit"></article>'''
+          if '<main class="wrap">' not in h: raise SystemExit('Main feed anchor missing')
+          h=h.replace('<main class="wrap">','<main class="wrap">\n'+card,1)
+          h=re.sub(r'<div class="top">UPDATED · .*?</div>',f'<div class="top">{band}</div>',h,count=1,flags=re.S)
+          missing=[x for x in protected if x not in h]
+          if missing: raise SystemExit(f'Protected markers missing after edit: {missing}')
+          if h.count(f'href="{slug}"')!=1 or h.count(f'href="{trade}"')!=1: raise SystemExit('Lead/feed link count failed')
+          if h.count('<article class="story') < before: raise SystemExit('Unexpected story-card loss')
+          H.write_text(h,encoding='utf-8')
+          PY
+          python3 scripts/sync_canada_discovery.py doj-canada-pause-misunderstanding-trump-fed-september-4-2026.html
+          python3 scripts/validate_canada_publish.py
+          python3 scripts/validate_canada_discovery.py
+
+      - name: Commit final source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'canada-at-war-finalizer[bot]'
+          git config user.email 'canada-at-war-finalizer[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml
+          git commit -m 'Canada: promote DOJ Canada misunderstanding lead'
+          git pull --rebase origin main
+          git push origin HEAD:main
+          echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Direct upload final package
+        env: {NEOCITIES_API_KEY: '${{ secrets.NEOCITIES_API_KEY }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]]
+          for file in Canada/index.html Canada/doj-canada-pause-misunderstanding-trump-fed-september-4-2026.html Canada/assets/lady-justice-canada-antitrust-sept4-2026.jpg Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml; do
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F "${file}=@${file}" https://neocities.org/api/upload
+          done
+
+      - name: Final public verification
+        env: {GH_TOKEN: '${{ github.token }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="${FINAL_SHA::8}"
+          check(){ u="$1"; m="$2"; f="$(mktemp)"; ok=0; for i in 1 2 3 4 5 6; do c="$(curl -L -sS -o "$f" -w '%{http_code}' "${u}?v=${short}&verify=${i}" || true)"; [[ "$c" == 200 ]] && grep -Fq "$m" "$f" && { ok=1; break; }; sleep 3; done; rm -f "$f"; [[ "$ok" == 1 ]]; }
+          check 'https://brazilginga.neocities.org/Canada/' 'DOJ CALLS ‘PAUSE ON CANADA’ A MISUNDERSTANDING'
+          check 'https://brazilginga.neocities.org/Canada/doj-canada-pause-misunderstanding-trump-fed-september-4-2026.html' 'A day of policy by threat, then reversal'
+          check 'https://brazilginga.neocities.org/Canada/archive.html' 'DOJ CALLS ‘PAUSE ON CANADA’ A MISUNDERSTANDING'
+          code="$(curl -L -sS -o /tmp/art -w '%{http_code}' "https://brazilginga.neocities.org/Canada/assets/lady-justice-canada-antitrust-sept4-2026.jpg?v=${short}")"
+          [[ "$code" == 200 && "$(wc -c </tmp/art)" -gt 50000 ]]
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=20"
+          json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+          [[ "$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")" == 0 ]]
+          echo "FINAL VERIFIED SHA=${FINAL_SHA}"
