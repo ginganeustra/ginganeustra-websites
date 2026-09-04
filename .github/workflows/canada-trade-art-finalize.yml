@@ -1,0 +1,45 @@
+name: Canada trade art finalize
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-trade-art-finalize.yml']
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Patch protected lead art and commit
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          h=Path('Canada/index.html')
+          t=h.read_text(encoding='utf-8')
+          old='assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp'
+          new='assets/trade-diversification-market-september-3-2026.jpg'
+          marked=re.search(r'<!-- CANADA_LEAD_BEGIN -->(.*?)<!-- CANADA_LEAD_END -->',t,re.S)
+          if not marked or old not in marked.group(1): raise SystemExit('Expected old lead art not found')
+          start,end=marked.span(1)
+          block=marked.group(1).replace(old,new,1)
+          t=t[:start]+block+t[end:]
+          if new not in block: raise SystemExit('New lead art not installed')
+          a=Path('Canada/non-us-exports-record-july-2026-september-3-2026.html').read_text(encoding='utf-8')
+          if new not in a: raise SystemExit('Trade article does not reference new lead art')
+          for x in ['CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','id="must-read-library"','ticker-speed-controller','var pxPerSecond=125']:
+              if x not in t: raise SystemExit('Protected marker lost: '+x)
+          h.write_text(t,encoding='utf-8')
+          PY
+          python3 scripts/validate_canada_publish.py
+          git config user.name 'canada-at-war-art[bot]'
+          git config user.email 'canada-at-war-art[bot]@users.noreply.github.com'
+          git add Canada/index.html
+          git commit -m 'Canada: install approved trade lead art'
+          git pull --rebase origin main
+          git push origin HEAD:main
