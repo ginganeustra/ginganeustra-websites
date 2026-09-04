@@ -1,0 +1,67 @@
+name: Canada trade produce final
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-trade-produce-finalize.yml']
+  workflow_dispatch:
+permissions: {contents: write, actions: read}
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Build package
+        run: |
+          set -euo pipefail
+          git fetch origin main caw-trade-produce-sept3-final
+          git reset --hard origin/main
+          git show origin/caw-trade-produce-sept3-final:Canada/non-us-exports-record-july-2026-september-3-2026.html > Canada/non-us-exports-record-july-2026-september-3-2026.html
+          git show origin/caw-trade-produce-sept3-final:Canada/ontario-grocers-american-produce-alternatives-september-3-2026.html > Canada/ontario-grocers-american-produce-alternatives-september-3-2026.html
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime,timezone
+          from zoneinfo import ZoneInfo
+          import re,html
+          C=Path('Canada'); H=C/'index.html'; A=C/'archive.html'; T=C/'non-us-exports-record-july-2026-september-3-2026.html'; P=C/'ontario-grocers-american-produce-alternatives-september-3-2026.html'
+          th=T.name; ph=P.name; mh='magaheads-washington-canada-message-september-2-2026.html'; base='https://brazilginga.neocities.org/Canada/'; tf=base+th; pf=base+ph
+          now=datetime.now(ZoneInfo('America/Toronto')); stamp=now.strftime('%b. %-d, %Y · %-I:%M %p').replace('AM','a.m.').replace('PM','p.m.')+' ET'; band=now.strftime('%B %-d, %Y · %-I:%M %p ET').upper().replace(' AM ET',' A.M. ET').replace(' PM ET',' P.M. ET'); iso=now.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace('+00:00','Z')
+          tradeart='assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp'; prodart='https://commons.wikimedia.org/wiki/Special:Redirect/file/Organic_Greenhouse_Tomatoes%2C_Oaxaca.jpg?width=1200'
+          swaps={'assets/mexico-tomato-harvest-september-3-2026.jpg':'https://commons.wikimedia.org/wiki/Special:Redirect/file/Organic_Greenhouse_Tomatoes%2C_Oaxaca.jpg?width=1200','assets/peru-grape-harvest-september-3-2026.jpg':'https://commons.wikimedia.org/wiki/Special:Redirect/file/Shine_Muscat_Grape_from_Peru.jpg?width=1200','assets/south-africa-orange-harvest-september-3-2026.jpg':'https://commons.wikimedia.org/wiki/Special:Redirect/file/Oranges_growing_on_the_Piekenierskloof_pass.jpg?width=1200','assets/egypt-orange-harvest-september-3-2026.jpg':'https://commons.wikimedia.org/wiki/Special:Redirect/file/Orange_harvest_1.jpg?width=1200','assets/australia-apple-harvest-september-3-2026.jpg':'https://commons.wikimedia.org/wiki/Special:Redirect/file/Harvesting_Semillon_grapes_at_Gisborne_Peak.jpg?width=1200'}
+          t=T.read_text(); p=P.read_text(); t=t.replace('assets/trade-diversification-market-september-3-2026.jpg',tradeart); p=p.replace('assets/canadian-local-produce-symbols-september-3-2026.jpg',prodart)
+          newhead='CANADA’S NON-U.S. EXPORTS HIT RECORD $25.6 BILLION AS U.S. SHARE FALLS TO 66.3%'
+          newdek='Canada exported a record $25.6 billion in goods to countries outside the United States in July, pushing non-U.S. markets to 33.7% of merchandise exports. In 2024, before Donald Trump returned to the White House, the United States accounted for 75.9% of Canadian domestic exports.'
+          t=re.sub(r'<title>.*?</title>',f'<title>{newhead.title()} — Canada at War</title>',t,1,flags=re.S); t=re.sub(r'<h1>.*?</h1>',f'<h1>{newhead}</h1>',t,1,flags=re.S); t=re.sub(r'<p class="dek">.*?</p>',f'<p class="dek">{newdek}</p>',t,1,flags=re.S)
+          hist='<p>When Trump returned to office in January 2025, the latest full-year 2024 customs-basis figures showed $547.4 billion in Canadian domestic exports going to the United States, or 75.9% of the total, and $173.6 billion going elsewhere, or 24.1%.</p><p>In 2025, the U.S. share fell to 71.7%, its lowest annual level since the early 1980s. Exports to the United States declined 5.8% while exports to countries outside the United States rose 17.2% to an annual record.</p><p>The July 2026 figures are one month of seasonally adjusted merchandise trade on a balance-of-payments basis, so their dollar totals should not be compared directly with the full-year 2024 customs-basis totals. The change in shares — from 75.9% U.S. and 24.1% elsewhere in 2024 to 66.3% and 33.7% in July — provides the cleaner measure of the shift.</p>'
+          marker=re.search(r'<p class="meta">.*?</p>',t,re.S); assert marker; t=t[:marker.end()]+hist+t[marker.end():]
+          t=t.replace('</div>\n</main>','<br><a href="https://international.canada.ca/en/global-affairs/corporate/reports/chief-economist/annual/2024">Global Affairs Canada — 2024 merchandise trade performance</a></div>\n</main>',1)
+          for a,b in swaps.items(): p=p.replace(a,b)
+          t=re.sub(r'<div class="top">.*?</div>',f'<div class="top">UPDATED · {band}</div>',t,1,flags=re.S); t=re.sub(r'<p class="meta">(?:Published|Updated).*?</p>',f'<p class="meta">Updated {stamp}</p>',t,1,flags=re.S)
+          p=re.sub(r'<div class="top">.*?</div>',f'<div class="top">PUBLISHED · {band}</div>',p,1,flags=re.S); p=re.sub(r'<p class="meta">(?:Published|Updated).*?</p>',f'<p class="meta">Published {stamp}</p>',p,1,flags=re.S); T.write_text(t); P.write_text(p)
+          h=H.read_text(); guards=['CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','id="must-read-library"','Guide to Manipulation and Deceit','href="archive.html"','ticker-speed-controller','var pxPerSecond=125','LEGACY_DEPLOY_GUARD: How Lying Works']; assert all(x in h for x in guards)
+          hero=f'''<!-- CANADA_LEAD_BEGIN -->\n<section class="hero"><div class="hero-in"><div class="k">Trade diversification · Statistics Canada · Exports</div><h1>CANADA’S NON-U.S. EXPORTS HIT RECORD $25.6 BILLION AS U.S. SHARE FALLS TO 66.3%</h1><img src="{tradeart}" alt="Canada trade diversification editorial art" style="display:block;width:100%;max-width:1100px;height:auto;margin:18px auto 26px"><p>Canada exported a record $25.6 billion in goods to countries outside the United States in July, pushing non-U.S. markets to 33.7% of merchandise exports. In 2024, before Donald Trump returned to the White House, the United States accounted for 75.9% of Canadian domestic exports.</p><a class="read" href="{th}">Read the report →</a><p class="meta">Updated {stamp}</p></div></section>\n<!-- CANADA_LEAD_END -->'''
+          h,n=re.subn(r'<!-- CANADA_LEAD_BEGIN -->.*?<!-- CANADA_LEAD_END -->',hero,h,1,flags=re.S); assert n==1
+          def rm(s,x): return re.sub(r'<article\b[^>]*>(?:(?!</article>).)*?href="'+re.escape(x)+r'"(?:(?!</article>).)*?</article>\s*','',s,flags=re.S)
+          for x in (th,mh,ph): h=rm(h,x)
+          maga=f'''<article class="story story-feature"><div><div class="k" style="color:#b51f2a">MAGAHEADS · Trade talks · Washington messaging</div><h2>MAGAHEADS: CARNEY ANSWERS TRUMP’S ‘JUST WATCH’ WARNING</h2><p>Mark Carney rejected the U.S. account of the stalled talks. Donald Trump then warned that making him “the enemy” would end with Canada’s economy collapsing.</p><a class="read" href="{mh}">Read the updated briefing →</a></div><img src="assets/trump-truth-social-just-watch-september-3-2026.jpg" alt="Trump Truth Social post"></article>'''
+          pc=f'''<article class="story story-feature"><div><div class="k" style="color:#b51f2a">Food supply · Buy Canadian · Trade diversification</div><h2>WHY ARE ONTARIO GROCERS STILL STOCKING SO MUCH AMERICAN PRODUCE?</h2><p>Ontario farms are in peak harvest while non-U.S. suppliers can provide much of what Canada cannot grow. Yet U.S.-grown produce remains common in the bins.</p><a class="read" href="{ph}">Read the report →</a><p class="meta" style="color:#666">Published {stamp}</p></div><img src="{prodart}" alt="Produce market"></article>'''
+          h=h.replace('<main class="wrap">','<main class="wrap">\n'+maga+'\n'+pc,1); h=re.sub(r'<div class="top">UPDATED · .*?</div>',f'<div class="top">UPDATED · {band}</div>',h,1,flags=re.S); h=re.sub(r'<title>Canada at War — .*?</title>',f'<title>Canada at War — {now.strftime("%B %-d, %Y")}</title>',h,1)
+          pos=[h.find('CANADA’S NON-U.S. EXPORTS HIT RECORD'),h.find('MAGAHEADS: CARNEY ANSWERS'),h.find('WHY ARE ONTARIO GROCERS')]; assert 0<=pos[0]<pos[1]<pos[2] and all(x in h for x in guards); H.write_text(h)
+          r=A.read_text(); te=th in r; pe=ph in r
+          def ra(s,x): return re.sub(r'<article class="archive-card">(?:(?!</article>).)*?href="'+re.escape(x)+r'"(?:(?!</article>).)*?</article>','',s,flags=re.S)
+          r=ra(ra(r,th),ph); marker='<section id="archive-results">'; tc=f'<article class="archive-card"><div class="archive-meta">Current page · {now.strftime("%B %-d, %Y")}</div><h2><a href="{th}">CANADA’S NON-U.S. EXPORTS HIT RECORD $25.6 BILLION AS U.S. SHARE FALLS TO 66.3%</a></h2><p>July exports outside the U.S. reached a record $25.6 billion.</p></article>'; pc2=f'<article class="archive-card"><div class="archive-meta">Current page · {now.strftime("%B %-d, %Y")}</div><h2><a href="{ph}">WHY ARE ONTARIO GROCERS STILL STOCKING SO MUCH AMERICAN PRODUCE?</a></h2><p>Ontario harvests and non-U.S. suppliers give retailers alternatives in many produce categories.</p></article>'; r=r.replace(marker,marker+tc+pc2,1)
+          m=re.search(r'<div id="result-count">(\d+) archive entries</div>',r); assert m; cnt=int(m.group(1))+(not te)+(not pe); r=re.sub(r'<div id="result-count">\d+ archive entries</div>',f'<div id="result-count">{cnt} archive entries</div>',r,1); r=re.sub(r'SEARCHABLE ARCHIVE · UPDATED .*?</div>',f'SEARCHABLE ARCHIVE · UPDATED {band}</div>',r,1); A.write_text(r)
+          def up(path,url):
+            s=path.read_text(); s=re.sub(r'<url>\s*<loc>'+re.escape(url)+r'</loc>.*?</url>\s*','',s,flags=re.S); assert '</urlset>' in s; s=s.replace('</urlset>',f'  <url><loc>{url}</loc><lastmod>{iso}</lastmod></url>\n</urlset>',1); path.write_text(s)
+          for q in (C/'sitemap.xml',Path('sitemap.xml')): up(q,tf); up(q,pf)
+          ns=Path('news-sitemap.xml'); s=ns.read_text()
+          for u,title in ((tf,'Canada’s non-U.S. exports hit record $25.6 billion as U.S. share falls to 66.3%'),(pf,'Why are Ontario grocers still stocking so much American produce?')):
+            s=re.sub(r'<url>\s*<loc>'+re.escape(u)+r'</loc>.*?</url>\s*','',s,flags=re.S); e=f'<url><loc>{u}</loc><news:news><news:publication><news:name>Canada at War</news:name><news:language>en</news:language></news:publication><news:publication_date>{now.isoformat(timespec="minutes")}</news:publication_date><news:title>{html.escape(title)}</news:title></news:news></url>\n'; s=s.replace('</urlset>',e+'</urlset>',1)
+          ns.write_text(s)
+          PY
+          python3 scripts/validate_canada_publish.py
+          git config user.name 'canada-at-war-finalizer[bot]'; git config user.email 'canada-at-war-finalizer[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/non-us-exports-record-july-2026-september-3-2026.html Canada/ontario-grocers-american-produce-alternatives-september-3-2026.html Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml
+          git commit -m 'Canada: publish trade lead and Ontario produce report'; git pull --rebase origin main; git push origin HEAD:main
+          echo "SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
