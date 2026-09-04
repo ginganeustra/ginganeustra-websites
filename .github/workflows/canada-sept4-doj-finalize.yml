@@ -87,7 +87,9 @@ jobs:
           git config user.email 'canada-at-war-finalizer[bot]@users.noreply.github.com'
           git add Canada/index.html Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml
           git commit -m 'Canada: promote DOJ Canada misunderstanding lead'
-          git pull --rebase origin main
+          git status --short
+          git add -u
+          git diff --cached --quiet || git commit --amend --no-edit
           git push origin HEAD:main
           echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
