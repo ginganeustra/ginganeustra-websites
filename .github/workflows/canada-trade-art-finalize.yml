@@ -20,26 +20,28 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          h=Path('Canada/index.html')
-          t=h.read_text(encoding='utf-8')
+          h=Path('Canada/index.html'); a=Path('Canada/non-us-exports-record-july-2026-september-3-2026.html')
+          t=h.read_text(encoding='utf-8'); q=a.read_text(encoding='utf-8')
           old='assets/winnipeg-manufacturing-tariff-support-september-3-2026.webp'
-          new='assets/trade-diversification-market-september-3-2026.jpg'
+          broken='assets/trade-diversification-market-september-3-2026.jpg'
+          new='assets/mark-carney-smiling-white-house-may-2025.jpg'
           marked=re.search(r'<!-- CANADA_LEAD_BEGIN -->(.*?)<!-- CANADA_LEAD_END -->',t,re.S)
-          if not marked or old not in marked.group(1): raise SystemExit('Expected old lead art not found')
-          start,end=marked.span(1)
-          block=marked.group(1).replace(old,new,1)
+          if not marked: raise SystemExit('Lead block missing')
+          start,end=marked.span(1); block=marked.group(1)
+          if old in block: block=block.replace(old,new,1)
+          elif broken in block: block=block.replace(broken,new,1)
+          else: raise SystemExit('Expected lead art path missing')
           t=t[:start]+block+t[end:]
-          if new not in block: raise SystemExit('New lead art not installed')
-          a=Path('Canada/non-us-exports-record-july-2026-september-3-2026.html').read_text(encoding='utf-8')
-          if new not in a: raise SystemExit('Trade article does not reference new lead art')
+          q=q.replace(broken,new).replace(old,new)
+          if new not in block or new not in q: raise SystemExit('Lead art replacement failed')
           for x in ['CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','id="must-read-library"','ticker-speed-controller','var pxPerSecond=125']:
               if x not in t: raise SystemExit('Protected marker lost: '+x)
-          h.write_text(t,encoding='utf-8')
+          h.write_text(t,encoding='utf-8'); a.write_text(q,encoding='utf-8')
           PY
           python3 scripts/validate_canada_publish.py
           git config user.name 'canada-at-war-art[bot]'
           git config user.email 'canada-at-war-art[bot]@users.noreply.github.com'
-          git add Canada/index.html
-          git commit -m 'Canada: install approved trade lead art'
+          git add Canada/index.html Canada/non-us-exports-record-july-2026-september-3-2026.html
+          git commit -m 'Canada: repair trade lead art for deployment'
           git pull --rebase origin main
           git push origin HEAD:main
