@@ -1,0 +1,314 @@
+name: Canada Sept. 4 morning batch
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-sept4-morning-batch.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wait for older Neocities deployment to settle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=20"
+          for attempt in $(seq 1 90); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active Publish to Neocities runs: $active"
+            if [[ "$active" == 0 ]]; then break; fi
+            sleep 5
+          done
+          json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+          [[ "$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")" == 0 ]]
+
+      - name: Reset to current main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Build four new stories, update MAGAHEADS and front page
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          import json, re, subprocess, sys
+
+          ROOT=Path('.')
+          C=ROOT/'Canada'
+          now=datetime.now(ZoneInfo('America/Toronto'))
+          banner=now.strftime('PUBLISHED · %B %-d, %Y · %-I:%M %p ET').upper().replace(' AM ET',' A.M. ET').replace(' PM ET',' P.M. ET')
+          home_banner=now.strftime('UPDATED · %B %-d, %Y · %-I:%M %p ET').upper().replace(' AM ET',' A.M. ET').replace(' PM ET',' P.M. ET')
+          time_display=now.strftime('%-I:%M %p').replace('AM','a.m.').replace('PM','p.m.')
+          display=f"Published Sept. 4, 2026 · {time_display} ET"
+          updated_display=f"Updated Sept. 4, 2026 · {time_display} ET"
+          utc=now.astimezone(ZoneInfo('UTC')).isoformat().replace('+00:00','Z')
+
+          stories = [
+          {
+            "slug":"trump-fed-trade-deficit-threat-september-4-2026",
+            "title":"Trump threatens to stop trade with deficit countries unless Fed cuts rates",
+            "headline":"TRUMP THREATENS TO STOP TRADE WITH DEFICIT COUNTRIES UNLESS FED CUTS RATES",
+            "description":"Donald Trump tied a threat to halt trade with deficit countries to a Federal Reserve interest-rate decision. U.S. data put Canada in an overall bilateral deficit with the United States in 2025.",
+            "kicker":"United States · Trade · Federal Reserve · Canada",
+            "deck":"Trump did not name Canada, but U.S. government figures show the United States ran an overall goods-and-services deficit with Canada in 2025. He did not explain how a trade cutoff would work.",
+            "image":"assets/trump-headshot-v3-august-30-2026.jpg",
+            "image_alt":"Donald Trump",
+            "image_width_percent":55,
+            "image_max_width":520,
+            "body_html":[
+              "<p>WASHINGTON — President Donald Trump said Friday that he would stop trading with countries that run trade deficits with the United States unless the Federal Reserve lowers interest rates. The threat connected access to the American market to a monetary-policy decision made inside the United States, while leaving unanswered which countries, products or legal mechanism he had in mind.</p>",
+              "<p>Trump did not name Canada. U.S. Trade Representative figures nevertheless show that the United States ran a US$48.3-billion goods deficit with Canada in 2025, partly offset by a US$27.7-billion surplus in services, leaving an overall bilateral deficit of about US$20.6 billion on those figures.</p>",
+              "<p>That distinction matters because Trump did not say whether his threat applies to goods alone, goods and services combined, or some other measure. He also gave no timetable, deficit threshold or description of what “stop trading” would mean for goods already moving under existing agreements.</p>",
+              "<p>The Federal Reserve sets U.S. monetary policy and foreign governments have no role in its interest-rate decisions. Trump has repeatedly pressed the central bank for lower rates, but Friday’s post put a foreign-trade consequence directly behind that demand.</p>",
+              "<p>The statement followed a stronger-than-expected U.S. employment report. Reuters reported that the economy added 162,000 jobs in August, compared with a forecast of about 56,000, while unemployment held at 4.1 per cent; traders responded by increasing bets that the Fed could raise rather than cut rates later in September.</p>",
+              "<p>Trump also invoked the Supreme Court’s February ruling on his emergency tariffs and characterized it as recognizing an “absolute right” for the president to stop trade. The decision itself was narrower: in <em>Learning Resources v. Trump</em>, the court held that the International Emergency Economic Powers Act does not authorize the president to impose tariffs.</p>",
+              "<p>IEEPA separately contains powers to regulate and, in qualifying emergencies, block or prohibit certain import and export transactions. The court did not hold that a president has an unrestricted power to terminate trade with any country simply because the United States runs a deficit with it.</p>",
+              "<p>For Canada, the new threat arrives inside an already active tariff dispute. Washington imposed 50-per-cent tariffs on C$27.6 billion of Canadian goods on Aug. 22, and Ottawa has announced counter-tariffs on C$27.6 billion of U.S. imports beginning Sept. 8.</p>",
+              "<p>The two governments have also given different accounts of why formal trade talks stopped Aug. 21. Senior U.S. officials say Canada sought additional concessions after being offered unusually favourable terms; Prime Minister Mark Carney says the U.S. position remained unacceptable on several issues and that any agreement must provide stability and credibility.</p>",
+              "<p>Trump added a Canada-specific warning Thursday, saying Canadian politicians could make him “the enemy” until Canada’s economy collapsed. Friday’s deficit-country threat was broader, but Canada falls inside at least one ordinary reading of the group he described because the U.S. goods deficit with Canada exceeds its services surplus.</p>",
+              "<p>What remains unknown is whether the post will become policy, which trade balance the administration would use, what authority it would invoke and what action by the Federal Reserve would satisfy Trump’s demand. The White House had not publicly supplied those details by late Friday morning.</p>"
+            ],
+            "sources":[
+              {"label":"Reuters — Trump threatens trade cutoff unless Fed lowers rates","url":"https://www.reuters.com/business/trump-says-if-fed-doesnt-cut-rates-hell-stop-trading-with-some-nations-2026-09-04/"},
+              {"label":"Office of the U.S. Trade Representative — Canada trade figures","url":"https://ustr.gov/countries-regions/americas/canada"},
+              {"label":"U.S. Supreme Court — Learning Resources v. Trump","url":"https://www.supremecourt.gov/opinions/25pdf/24-1287_4gcj.pdf"},
+              {"label":"Department of Finance Canada — Aug. 22 tariff response","url":"https://www.canada.ca/en/department-finance/news/2026/08/canada-announces-targeted-countermeasures-and-substantive-support-for-workers-and-businesses-in-response-to-us-tariffs.html"}
+            ]
+          },
+          {
+            "slug":"canada-jobs-august-tariffs-september-4-2026",
+            "title":"Canada loses 42,000 jobs before newest U.S. tariffs entered the data",
+            "headline":"CANADA LOSES 42,000 JOBS — BEFORE THE NEWEST U.S. TARIFFS ENTERED THE DATA",
+            "description":"Canadian employment fell by 42,000 in August, with most losses in full-time work. The Labour Force Survey reference week preceded the newest U.S. tariffs.",
+            "kicker":"Canada · Employment · Tariffs · Economy",
+            "deck":"Full-time employment accounted for most of the decline and unemployment held at 6.4%. The survey reference week ran Aug. 9–15, before Washington’s latest 50% tariffs took effect Aug. 22.",
+            "body_html":[
+              "<p>Canada lost 42,000 jobs in August, with most of the decline coming from full-time work, while the national unemployment rate held at 6.4 per cent. The result was substantially weaker than economists had expected after several months of employment growth.</p>",
+              "<p>Reuters’ survey of economists had pointed to an increase of about 15,000 jobs. Its seasonally adjusted calculation put the actual decline at 41,700, including 35,900 full-time positions and 5,800 part-time positions; Statistics Canada reports the overall change as 42,000 after rounding.</p>",
+              "<p>The employment rate — the share of the population aged 15 and older that is working — fell 0.1 percentage points to 60.8 per cent. Youth unemployment was little changed at 12.9 per cent, while average hourly wages were 2.0 per cent higher than a year earlier, down from 2.8 per cent annual growth in July.</p>",
+              "<p>The timing of the survey separates these numbers from the newest round of U.S. tariffs. The August Labour Force Survey reference week ran from Aug. 9 through Aug. 15; Washington’s 50-per-cent tariffs on C$27.6 billion of Canadian goods did not take effect until Aug. 22.</p>",
+              "<p>Friday’s report therefore does not measure job losses caused by the Aug. 22 tariffs. It provides a labour-market reading immediately before that escalation, giving future surveys a cleaner point of comparison as the new duties and Canada’s Sept. 8 counter-tariffs work through affected industries.</p>",
+              "<p>Ontario and Quebec accounted for most of the provincial decline. Employment fell by 18,000 in Ontario and 19,000 in Quebec, while New Brunswick gained about 2,400 jobs and employment was little changed in the other provinces.</p>",
+              "<p>The industry numbers moved in different directions. Manufacturing employment increased by 22,000, while business, building and other support services lost 20,000 jobs, public administration lost 8,800, natural resources lost 7,700 and utilities lost 5,600.</p>",
+              "<p>Public-sector employment fell by another 20,000 in August, its third consecutive monthly decline, and Statistics Canada says it has fallen by 78,000 since May. Despite the August drop, total employment remained 217,000 higher than a year earlier.</p>",
+              "<p>A separate August indicator pointed toward stronger activity. The seasonally adjusted Ivey Purchasing Managers Index rose to 64.3 from 55.1 in July, its highest level since May 2022, while its employment gauge increased to 55.0 from 52.2.</p>",
+              "<p>The two measures answer different questions. The Labour Force Survey estimates how many people are employed across the population, while the Ivey index records month-to-month changes reported by purchasing managers; stronger purchasing activity can therefore coexist with a decline in total employment.</p>",
+              "<p>Other recent indicators have also been mixed, leaving no single August measure that describes the entire economy. What Friday’s labour report establishes is narrower: employment weakened before the latest U.S. tariff round was present in the survey period, with the largest provincial losses in Ontario and Quebec and manufacturing employment moving in the opposite direction.</p>"
+            ],
+            "sources":[
+              {"label":"Statistics Canada — Labour Force Survey, August 2026","url":"https://www150.statcan.gc.ca/n1/daily-quotidien/260904/dq260904a-eng.htm"},
+              {"label":"Reuters — Canada employment falls by more than 41,000","url":"https://www.reuters.com/world/americas/canadas-job-market-loses-steam-employment-drops-by-over-41000-2026-09-04/"},
+              {"label":"Reuters — Ivey PMI reaches more than four-year high","url":"https://www.reuters.com/world/americas/canadas-ivey-pmi-expands-more-than-four-year-high-august-2026-09-04/"},
+              {"label":"Department of Finance Canada — latest U.S. tariffs and Canadian response","url":"https://www.canada.ca/en/department-finance/news/2026/08/canada-announces-targeted-countermeasures-and-substantive-support-for-workers-and-businesses-in-response-to-us-tariffs.html"}
+            ]
+          },
+          {
+            "slug":"kemptville-chair-maker-us-tariff-relocation-september-4-2026",
+            "title":"The tariff is pushing a Kemptville chair maker toward the U.S.",
+            "headline":"THE TARIFF IS PUSHING A KEMPTVILLE CHAIR MAKER TOWARD THE U.S.",
+            "description":"DFC Woodworks exports about 70% of its furniture to the United States. Its president says the new 50% duty has forced the family manufacturer to consider moving most production south.",
+            "kicker":"Ontario · Small business · Tariffs · Manufacturing",
+            "deck":"DFC Woodworks has made outdoor furniture in eastern Ontario since 1955 and exports about 70% of it to the United States. Its president says the 50% duty has put relocation on the table.",
+            "body_html":[
+              "<p>KEMPTVILLE, Ont. — A family-owned eastern Ontario furniture manufacturer that has operated since 1955 is considering moving most of its production to the United States after its exports were hit with a 50-per-cent U.S. tariff. DFC Woodworks Inc. makes outdoor furniture, including Muskoka and Adirondack chairs, and sends about 70 per cent of its production south of the border.</p>",
+              "<p>President François Bruneau told The Canadian Press that the company is now weighing three choices: absorb the tariff, raise U.S. prices and risk losing sales, or move the bulk of manufacturing into the United States. For a company whose American customers account for most exports, each option changes either its costs, its prices or where the work is done.</p>",
+              "<p>The tariff is collected when the product enters the United States, but the commercial cost can move through the supply chain in different ways. An importer can pay it and pass some or all of the cost to customers, an exporter can cut its price to offset some of the duty, or the two sides can split the burden.</p>",
+              "<p>Bruneau’s account is one company’s response, not evidence that Canadian manufacturers as a group are relocating. It does, however, show how a border tariff can turn a trade-policy dispute into a location decision for a small exporter whose largest market is on the other side of that border.</p>",
+              "<p>The problem is particularly difficult for smaller firms because they generally have fewer plants, less financing and less capacity to develop new foreign markets quickly. Carleton University professor Fen Hampson told The Canadian Press that small and medium-sized companies often lack the resources larger businesses can use to diversify or reorganize supply chains.</p>",
+              "<p>Ottawa has announced a broader package of tariff-response programs, including regional development funding and support intended to help companies retool, diversify and find new markets. Those programs can reduce adjustment costs, but they do not remove the 50-per-cent duty DFC faces when a chair crosses the U.S. border.</p>",
+              "<p>Canada is also preparing counter-tariffs on C$27.6 billion of U.S. imports beginning Sept. 8. Those measures are designed as retaliation for the U.S. action; they do not directly lower the tariff on a Canadian manufacturer’s exports.</p>",
+              "<p>DFC’s decision is therefore a business calculation under a policy that remains in force. If the company keeps production in Kemptville, it must decide how much of the new cost can be absorbed or passed on; if it shifts production, the tariff would have contributed to moving Canadian manufacturing closer to the market imposing it.</p>"
+            ],
+            "sources":[
+              {"label":"The Canadian Press via Yahoo Finance — Muskoka chair maker weighs U.S. move","url":"https://ca.finance.yahoo.com/news/muskoka-chair-makers-tariff-woes-080007143.html"},
+              {"label":"Department of Finance Canada — tariff response and business supports","url":"https://www.canada.ca/en/department-finance/news/2026/08/canada-announces-targeted-countermeasures-and-substantive-support-for-workers-and-businesses-in-response-to-us-tariffs.html"}
+            ]
+          },
+          {
+            "slug":"trump-us-banks-canada-fact-check-september-4-2026",
+            "title":"Trump says U.S. banks are barred from Canada. Fifteen are already here.",
+            "headline":"TRUMP SAYS U.S. BANKS ARE BARRED FROM CANADA. FIFTEEN ARE ALREADY HERE.",
+            "description":"Donald Trump said Canada does not allow U.S. banks to operate there. AP found 15 U.S.-based banks in Canada, and OSFI maintains a formal licensing route for foreign bank branches.",
+            "kicker":"Fact check · Banking · Canada–U.S. trade",
+            "deck":"Trump said Canada does not allow American banks to operate there. AP found 15 U.S.-based banks already doing business in Canada, and Canada’s banking regulator publishes a formal route for foreign branches.",
+            "body_html":[
+              "<p>WASHINGTON — Donald Trump said this week that Canada does not allow American banks to operate there. The claim is false: U.S.-based banks already operate in Canada as branches and subsidiaries, and Canada’s federal banking regulator publishes a formal process for foreign banks seeking to establish branches.</p>",
+              "<p>Trump made the claim Wednesday while answering a question about renewed Canada-U.S. trade negotiations during an Oval Office meeting with travel-industry executives. “We don’t have our banks there. You know why? They don’t allow it,” he said.</p>",
+              "<p>An Associated Press fact check found 15 U.S.-based banks operating in Canada as branches or subsidiaries. They include JPMorgan Chase, Citibank, Bank of America, Capital One and Wells Fargo, among other institutions serving Canadian corporate, institutional or consumer markets.</p>",
+              "<p>Trump also referred to the Bank of Canada while talking about Canadian banks. The Bank of Canada is the country’s central bank, responsible for monetary policy and financial-system functions; it is not a commercial bank competing for deposits and loans in the United States.</p>",
+              "<p>Canada does regulate foreign banks differently depending on how they enter the market. Foreign-owned subsidiaries can operate as Canadian-incorporated Schedule II banks, while authorized foreign bank branches operate under Schedule III of the Bank Act.</p>",
+              "<p>The Office of the Superintendent of Financial Institutions maintains a guide specifically for establishing a foreign bank branch in Canada. Full-service foreign branches face restrictions on some deposit-taking activities and lending branches have narrower powers, but those rules are a regulatory framework, not a prohibition on American banks.</p>",
+              "<p>The Canadian Bankers Association told AP that U.S.-based bank branches and subsidiaries hold about C$124.6 billion in assets in Canada. Federal Reserve data cited by AP also show eight Canadian banks operating in the United States, so the cross-border banking relationship runs in both directions.</p>",
+              "<p>The number of large American retail-bank storefronts in Canada is smaller than the U.S. banking industry’s size might suggest. Banking specialists cited by AP pointed to the size of the Canadian market, established domestic competitors and regulatory costs as factors affecting where foreign institutions choose to build retail networks.</p>",
+              "<p>The factual distinction matters if banking becomes part of the trade dispute. Canada can be criticized for particular banking rules or market-access conditions, but that is different from saying American banks are not allowed into the country when multiple U.S. institutions already operate under the existing regime.</p>",
+              "<p>Trump did not identify a U.S. bank that Canada had refused to admit, and the White House did not provide AP with evidence supporting his claim. The public regulatory record instead shows an established foreign-bank licensing system and existing American participants.</p>"
+            ],
+            "sources":[
+              {"label":"Associated Press — Fact Focus on Trump’s Canada banking claim","url":"https://apnews.com/article/fact-check-trump-canada-american-banks-96819ae447d3f5f6dcb5337b2bcfb8b0"},
+              {"label":"OSFI — Foreign bank branches in Canada","url":"https://www.osfi-bsif.gc.ca/en/supervision/financial-institutions/banks/foreign-bank-branches"},
+              {"label":"OSFI — Guide to Foreign Bank Branching","url":"https://www.osfi-bsif.gc.ca/en/guidance/guidance-library/guide-foreign-bank-branching"}
+            ]
+          }
+          ]
+
+          tmpdir=Path('.ca-sept4-batch')
+          tmpdir.mkdir(exist_ok=True)
+          for story in stories:
+              story.update({
+                "published_banner": banner,
+                "published_display": display,
+                "updated_home_banner": home_banner,
+                "lastmod_utc": utc,
+                "lead": False
+              })
+              p=tmpdir/(story["slug"]+'.json')
+              p.write_text(json.dumps(story, ensure_ascii=False, indent=2), encoding='utf-8')
+              subprocess.run(['python3','scripts/publish_canada_story.py',str(p)], check=True)
+
+          # Update continuing MAGAHEADS in place; preserve shell, lead art and feature identity.
+          mag=C/'magaheads-washington-canada-message-september-2-2026.html'
+          t=mag.read_text(encoding='utf-8')
+          t=re.sub(r'<title>.*?</title>', '<title>MAGAHEADS: Greer says Canada walked away from “the best deal in the world” — Canada at War</title>', t, count=1, flags=re.S)
+          t=re.sub(r'<meta name="description" content=".*?">', '<meta name="description" content="U.S. Trade Representative Jamieson Greer joined Howard Lutnick and Scott Bessent in arguing that Canada rejected an unusually favourable trade deal. Mark Carney disputes that account.">', t, count=1, flags=re.S)
+          t=re.sub(r'<div class="top">UPDATED · .*?</div>', f'<div class="top">{home_banner}</div>', t, count=1, flags=re.S)
+          t=re.sub(r'<h1>.*?</h1>', '<h1>MAGAHEADS: GREER SAYS CANADA WALKED AWAY FROM “THE BEST DEAL IN THE WORLD”</h1>', t, count=1, flags=re.S)
+          t=re.sub(r'<p class="dek">.*?</p>', '<p class="dek">The U.S. trade representative became the third senior Trump economic official in days to make the same basic public case: Washington offered Canada exceptional terms and Ottawa walked away. Prime Minister Mark Carney has disputed that account.</p>', t, count=1, flags=re.S)
+          t=re.sub(r'<p class="meta">Updated .*?</p>', f'<p class="meta">{updated_display}</p>', t, count=1, flags=re.S)
+
+          body = r'''
+          <p>U.S. Trade Representative Jamieson Greer appeared on Fox News’s <em>Special Report</em> Thursday with a new version of an argument senior Trump administration officials have been making throughout the week: Washington offered Canada an unusually favourable trade agreement and Canada chose not to take it. “We offered them the best deal. They looked at it square in the face and turned around,” Greer told Bret Baier.</p>
+          <p>Greer said the United States had offered movement on steel, aluminum, automobiles and lumber and that President Donald Trump and Prime Minister Mark Carney reached what he described as a handshake understanding. He said Canadian negotiators later returned seeking additional tariff relief, an account Canada has not accepted as a complete description of why the talks ended.</p>
+          <p>Greer also said there had been contacts with Canadian officials since formal negotiations stopped Aug. 21 but no return to formal talks. He placed the next decision on Ottawa, telling Fox that the matter was now in Canada’s corner.</p>
+          <p>Those are Greer’s claims about a negotiation whose final text has not been made public. What can be compared publicly is the account he gave with the accounts offered by Commerce Secretary Howard Lutnick and Treasury Secretary Scott Bessent over the preceding days.</p>
+          <p>On Wednesday, Lutnick told CNBC’s <em>Squawk Box</em> that Canadian negotiators began adding what he called “crazy ideas” as a deal neared completion. He said he asked a Canadian counterpart whether Ottawa was trying to blow up the agreement and then alleged that Canada “blew it up for political reasons only.”</p>
+          <p>Lutnick’s account went beyond a disagreement over tariff rates and attributed a domestic political motive to the Canadian government. Canada has rejected that characterization, and no public Canadian confirmation has been produced for Lutnick’s description of the private exchange.</p>
+          <p>Two days earlier, Bessent used a CNBC appearance to emphasize the imbalance in economic size between the two countries and to mock Canada’s ability to retaliate. He also said Canada had been offered “the best trade deal of any country on the globe” before walking away at the last minute.</p>
+          <p>Greer, Lutnick and Bessent used different language and appeared in different interviews, and their appearances do not by themselves establish a centrally coordinated script. The documented similarity is narrower: all three publicly described the U.S. offer as exceptionally favourable and assigned responsibility for the breakdown to Ottawa.</p>
+          <figure style="margin:34px auto;max-width:276px"><img src="assets/mark-carney-smiling-white-house-may-2025.jpg" alt="Prime Minister Mark Carney smiling during a May 2025 White House visit" style="display:block;width:100%;height:auto"><figcaption style="font:12px/1.4 Arial;color:#666;margin-top:7px">Archive photograph: Mark Carney during a May 2025 White House visit.</figcaption></figure>
+          <p>Carney gave a different account Thursday in Thunder Bay. He dismissed Lutnick and Bessent’s political analysis by referring to them as appointed cabinet members rather than experts on Canadian politics, and said Washington had maintained an “our way or the highway” position on several issues during the closing hours of the negotiations.</p>
+          <p>Carney said some U.S. demands involving Canadian language and culture had since disappeared, which he welcomed, and said Canada remained prepared to negotiate when an agreement could provide sufficient stability and credibility. His argument has been that the problem was not simply the headline tariff rate but whether accepted terms could later be changed and whether other U.S. demands intruded on Canadian policy choices.</p>
+          <p>Carney had already said on Sept. 1 that Washington needed to “start being serious” before formal talks resumed. That remark came before Lutnick’s Wednesday television appearance, so it should not be read as a response to Lutnick’s later comments.</p>
+          <p>Trump entered the exchange directly later Thursday, writing on Truth Social that it was politically useful for Canadian politicians to make him “the enemy” until Canada’s economy collapsed. He ended the post with “Just watch!” — a presidential warning that went beyond the administration’s earlier argument over who caused the negotiating breakdown.</p>
+          <p>By Friday morning Trump had broadened the pressure beyond Canada, threatening to stop trading with countries that run deficits with the United States unless the Federal Reserve cuts interest rates. Canada was not named, but U.S. government figures show the American goods deficit with Canada exceeded its services surplus in 2025, leaving the United States in an overall bilateral deficit on those figures.</p>
+          <h2>WHO SAID WHAT</h2>
+          <ul>
+            <li><strong>Aug. 21:</strong> Formal Canada–U.S. trade talks stop without an agreement.</li>
+            <li><strong>Aug. 31:</strong> Bessent says Canada was offered the best deal of any country and argues that an economy 13 times larger cannot be matched tariff for tariff.</li>
+            <li><strong>Sept. 1:</strong> Carney says Washington must “start being serious” before negotiations resume.</li>
+            <li><strong>Sept. 2:</strong> Lutnick says Canadian negotiators added late demands and alleges the deal was blown up for political reasons.</li>
+            <li><strong>Sept. 3:</strong> Carney describes the U.S. posture as “our way or the highway”; Greer tells Fox Canada rejected what he calls the best deal in the world; Trump later warns about Canada’s economy collapsing.</li>
+            <li><strong>Sept. 4:</strong> Trump threatens a broader trade cutoff against deficit countries unless the Federal Reserve lowers rates.</li>
+          </ul>
+          <p>The public record therefore contains two competing explanations of the same failed negotiation. Washington’s senior economic officials say Ottawa was offered exceptional terms and asked for too much; Carney says the terms did not provide the stability or policy room Canada required.</p>
+          <p class="meta">MAGAHEADS is updated through the day as Canada-related appearances, interviews and official responses are verified.</p>
+          '''
+          sources = '''<div class="sources"><b>Sources</b><a href="https://www.foxnews.com/media/trump-trade-chief-reveals-what-preceded-canada-walking-away-best-deal-world">Fox News — Jamieson Greer on Special Report</a><br><a href="https://pressroom.versantmedia.com/cnbc/press-releases/cnbc-excerpts-us-commerce-secretary-howard-lutnick-speaks-cnbcs-squawk-box-0">CNBC — Howard Lutnick on Squawk Box</a><br><a href="https://www.realclearpolitics.com/video/2026/08/31/bessent_i_dont_think_canada_can_be_in_a_tit-for-tat_with_someone_13_times_larger.html">CNBC transcript excerpt via RealClearPolitics — Scott Bessent</a><br><a href="https://www.reuters.com/world/canada-ready-us-trade-deal-that-benefits-both-countries-carney-says-2026-09-03/">Reuters — Carney response and Trump’s Sept. 3 post</a><br><a href="https://www.reuters.com/world/canadas-carney-says-us-needs-start-being-serious-before-trade-talks-can-resume-2026-09-01/">Reuters — Carney’s Sept. 1 remarks</a><br><a href="https://www.reuters.com/business/trump-says-if-fed-doesnt-cut-rates-hell-stop-trading-with-some-nations-2026-09-04/">Reuters — Trump’s Sept. 4 deficit-country trade threat</a><br><a href="https://ustr.gov/countries-regions/americas/canada">Office of the U.S. Trade Representative — Canada trade figures</a></div>'''
+
+          first_meta=re.search(r'<p class="meta">Updated .*?</p>', t, re.S)
+          if not first_meta:
+              raise SystemExit('MAGAHEADS first meta not found')
+          source_start=t.find('<div class="sources">', first_meta.end())
+          if source_start < 0:
+              raise SystemExit('MAGAHEADS source block not found')
+          source_end=t.find('</div>', source_start)
+          if source_end < 0:
+              raise SystemExit('MAGAHEADS source block end not found')
+          source_end += len('</div>')
+          t=t[:first_meta.end()] + '\n' + body.strip() + '\n' + sources + t[source_end:]
+          mag.write_text(t, encoding='utf-8')
+
+          sys.path.insert(0, str(ROOT/'scripts'))
+          from sync_canada_discovery import read_article, sync
+          sync([read_article('magaheads-washington-canada-message-september-2-2026.html')])
+
+          home=C/'index.html'
+          h=home.read_text(encoding='utf-8')
+          protected=[
+            'CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','CANADA_LEAD_BEGIN','CANADA_LEAD_END',
+            'THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg',
+            'petition-paint-mix','Guide to Manipulation and Deceit','id="must-read-library"',
+            'ticker-speed-controller','var pxPerSecond=125'
+          ]
+          missing=[x for x in protected if x not in h]
+          if missing:
+              raise SystemExit('Unsafe homepage state, missing: '+', '.join(missing))
+
+          old_mag=re.compile(r'<article class="story story-feature">(?:(?!</article>).)*?href="magaheads-washington-canada-message-september-2-2026\.html"(?:(?!</article>).)*?</article>\s*',re.S)
+          h,n=old_mag.subn('',h,count=1)
+          if n != 1:
+              raise SystemExit(f'Expected one current MAGAHEADS homepage card, removed {n}')
+
+          cards=f'''
+          <article class="story story-feature"><div><div class="k" style="color:#b51f2a">United States · Trade · Federal Reserve · Canada</div><h2>TRUMP THREATENS TO STOP TRADE WITH DEFICIT COUNTRIES UNLESS FED CUTS RATES</h2><p>Trump did not name Canada, but U.S. government figures show the United States ran an overall goods-and-services deficit with Canada in 2025. He did not explain how a trade cutoff would work.</p><a class="read" href="trump-fed-trade-deficit-threat-september-4-2026.html">Read the report →</a><p class="meta" style="color:#666">{display}</p></div><img src="assets/trump-headshot-v3-august-30-2026.jpg" alt="Donald Trump"></article>
+          <article class="story"><div class="k" style="color:#b51f2a">Canada · Employment · Tariffs · Economy</div><h2>CANADA LOSES 42,000 JOBS — BEFORE THE NEWEST U.S. TARIFFS ENTERED THE DATA</h2><p>Full-time employment accounted for most of the decline and unemployment held at 6.4%. The survey reference week ran Aug. 9–15, before Washington’s latest 50% tariffs took effect Aug. 22.</p><a class="read" href="canada-jobs-august-tariffs-september-4-2026.html">Read the report →</a><p class="meta" style="color:#666">{display}</p></article>
+          <article class="story story-feature"><div><div class="k" style="color:#b51f2a">MAGAHEADS · Trade talks · Washington messaging</div><h2>MAGAHEADS: GREER SAYS CANADA WALKED AWAY FROM “THE BEST DEAL IN THE WORLD”</h2><p>Greer became the third senior Trump economic official in days to make the same basic public case: Washington offered Canada exceptional terms and Ottawa walked away. Carney disputes that account.</p><a class="read" href="magaheads-washington-canada-message-september-2-2026.html">Read the updated briefing →</a><p class="meta" style="color:#666">{updated_display}</p></div><img src="assets/trump-truth-social-just-watch-september-3-2026.jpg" alt="Donald Trump’s September 3 Truth Social post warning that Canada’s economy would collapse"></article>
+          <article class="story"><div class="k" style="color:#b51f2a">Ontario · Small business · Tariffs · Manufacturing</div><h2>THE TARIFF IS PUSHING A KEMPTVILLE CHAIR MAKER TOWARD THE U.S.</h2><p>DFC Woodworks has made outdoor furniture in eastern Ontario since 1955 and exports about 70% of it to the United States. Its president says the 50% duty has put relocation on the table.</p><a class="read" href="kemptville-chair-maker-us-tariff-relocation-september-4-2026.html">Read the report →</a><p class="meta" style="color:#666">{display}</p></article>
+          <article class="story"><div class="k" style="color:#b51f2a">Fact check · Banking · Canada–U.S. trade</div><h2>TRUMP SAYS U.S. BANKS ARE BARRED FROM CANADA. FIFTEEN ARE ALREADY HERE.</h2><p>Trump said Canada does not allow American banks to operate there. AP found 15 U.S.-based banks already doing business in Canada, and Canada’s banking regulator publishes a formal route for foreign branches.</p><a class="read" href="trump-us-banks-canada-fact-check-september-4-2026.html">Read the fact check →</a><p class="meta" style="color:#666">{display}</p></article>
+          '''
+          marker='<main class="wrap">'
+          if h.count(marker) != 1:
+              raise SystemExit('Homepage main marker missing or duplicated')
+          h=h.replace(marker,marker+'\n'+cards.strip()+'\n',1)
+          h,n=re.subn(r'<div class="top">UPDATED · .*?</div>',f'<div class="top">{home_banner}</div>',h,count=1,flags=re.S)
+          if n != 1:
+              raise SystemExit('Homepage update timestamp not changed')
+          for x in protected:
+              if x not in h:
+                  raise SystemExit('Protected homepage marker lost: '+x)
+          if h.count('href="magaheads-washington-canada-message-september-2-2026.html"') != 1:
+              raise SystemExit('MAGAHEADS homepage card duplicated')
+          for story in stories:
+              href=story["slug"]+'.html'
+              if h.count(f'href="{href}"') != 1:
+                  raise SystemExit(f'Expected one homepage card for {href}')
+          home.write_text(h,encoding='utf-8')
+
+          sync([read_article(s["slug"]+'.html') for s in stories] + [read_article('magaheads-washington-canada-message-september-2-2026.html')])
+          print('SEPT 4 MORNING BATCH BUILT', display)
+          PY
+          rm -rf .ca-sept4-batch
+          python3 scripts/validate_canada_publish.py
+          python3 scripts/validate_canada_discovery.py
+          grep -Fq 'TRUMP THREATENS TO STOP TRADE WITH DEFICIT COUNTRIES UNLESS FED CUTS RATES' Canada/index.html
+          grep -Fq 'CANADA LOSES 42,000 JOBS — BEFORE THE NEWEST U.S. TARIFFS ENTERED THE DATA' Canada/index.html
+          grep -Fq 'MAGAHEADS: GREER SAYS CANADA WALKED AWAY FROM “THE BEST DEAL IN THE WORLD”' Canada/index.html
+          grep -Fq 'THE TARIFF IS PUSHING A KEMPTVILLE CHAIR MAKER TOWARD THE U.S.' Canada/index.html
+          grep -Fq 'TRUMP SAYS U.S. BANKS ARE BARRED FROM CANADA. FIFTEEN ARE ALREADY HERE.' Canada/index.html
+
+      - name: Commit one publication batch to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'canada-at-war-publisher[bot]'
+          git config user.email 'canada-at-war-publisher[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/archive.html Canada/sitemap.xml Canada/news-sitemap.xml sitemap.xml news-sitemap.xml Canada/*.html Canada/.publish/last.json
+          if git diff --cached --quiet; then
+            echo 'No publication changes produced' >&2
+            exit 1
+          fi
+          git commit -m 'Publish Sept. 4 Canada morning batch'
+          git fetch origin main
+          git rebase origin/main
+          python3 scripts/validate_canada_publish.py
+          python3 scripts/validate_canada_discovery.py
+          git push origin HEAD:main
