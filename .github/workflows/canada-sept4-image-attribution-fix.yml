@@ -42,68 +42,78 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          def replace_once(text, old, new, label):
+          def one(text, old, new, label):
               if old not in text:
                   raise SystemExit(f'Expected text not found for {label}')
               return text.replace(old, new, 1)
 
           trade = Path('Canada/non-us-exports-record-july-2026-september-3-2026.html')
           t = trade.read_text(encoding='utf-8')
-          t = replace_once(t,
+          t = one(t,
               '<title>Canada’S Non-U.S. Exports Hit Record $25.6 Billion As U.S. Share Falls To 66.3% — Canada at War</title>',
               '<title>Canada’s non-U.S. exports hit record $25.6 billion as U.S. share falls to 66.3% — Canada at War</title>',
-              'trade title case')
-          t = replace_once(t,
+              'trade title')
+          t = one(t,
               '<img class="lead-art" src="assets/mark-carney-smiling-white-house-may-2025.jpg" alt="AI-generated editorial illustration contrasting a busy Canadian market stand with an empty rain-soaked U.S. stand">\n<p class="caption">AI-generated editorial illustration.</p>',
               '<img class="lead-art" src="assets/mark-carney-smiling-white-house-may-2025.jpg" alt="Prime Minister Mark Carney during a May 6, 2025 White House visit">\n<p class="caption">Prime Minister Mark Carney at the White House, May 6, 2025. Official White House photograph, public domain. <a href="https://commons.wikimedia.org/wiki/File:Mark_Carney_portrait_May_2025_(4).jpg">Source: Wikimedia Commons</a>.</p>',
-              'trade lead caption')
-          marker = '<p class="meta">Updated Sep. 4, 2026 · 1:14 a.m. ET</p>'
+              'trade image credit')
           correction = '<p><strong>Correction, Sept. 4:</strong> An earlier caption misidentified the White House photograph as AI-generated. The image credit has been corrected.</p>'
           if correction not in t:
-              t = replace_once(t, marker, marker + correction, 'trade correction note')
+              marker = '<p class="meta">Updated Sep. 4, 2026 · 1:14 a.m. ET</p>'
+              t = one(t, marker, marker + correction, 'trade correction')
           trade.write_text(t, encoding='utf-8')
 
           produce = Path('Canada/ontario-grocers-american-produce-alternatives-september-3-2026.html')
           p = produce.read_text(encoding='utf-8')
-          p = replace_once(p,
+          replacements = [
+            (
               '<img class="lead-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Organic_Greenhouse_Tomatoes%2C_Oaxaca.jpg?width=1200" alt="AI-generated editorial collage of Canadian provincial local-food symbols among fresh produce">\n<p class="caption">AI-generated editorial illustration. Provincial local-food programs and marks vary by province; shoppers should check the actual origin label on the food they buy.</p>',
               '<img class="lead-art" src="assets/ontario-farmers-market-brampton-2008.jpg" alt="Harvest-season farmers market in Brampton, Ontario">\n<p class="caption">Harvest-season farmers market in Brampton, Ontario, photographed in 2008. <a href="https://commons.wikimedia.org/wiki/File:Harvest_time_farmers%27_market%2C_Brampton%2C_Ontario._%2851265888252%29.jpg">Photo: edk7 / Wikimedia Commons</a>, CC BY-SA 2.0.</p>',
-              'produce Ontario lead art')
-          p = replace_once(p,
+              'Ontario lead art'
+            ),
+            (
               '<img class="story-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Organic_Greenhouse_Tomatoes%2C_Oaxaca.jpg?width=1200" alt="AI-generated editorial illustration of workers harvesting tomatoes in a Mexican greenhouse">\n<p class="caption">Mexico is a major non-U.S. source of produce for Canada. AI-generated editorial illustration.</p>',
               '<img class="story-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Organic_Greenhouse_Tomatoes%2C_Oaxaca.jpg?width=1200" alt="Tomatoes growing in a greenhouse in San Pablo Huitzo, Oaxaca, Mexico">\n<p class="caption">Tomatoes growing in a greenhouse in San Pablo Huitzo, Oaxaca, Mexico. <a href="https://commons.wikimedia.org/wiki/File:Organic_Greenhouse_Tomatoes%2C_Oaxaca.jpg">Photo: Nsaum75 / Wikimedia Commons</a>, CC BY-SA 3.0.</p>',
-              'Oaxaca photo caption')
-          p = replace_once(p,
+              'Oaxaca photo'
+            ),
+            (
               '<img class="story-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Shine_Muscat_Grape_from_Peru.jpg?width=1200" alt="AI-generated editorial illustration of workers harvesting grapes in Peru">\n<p class="caption">Peru is one of the major Southern Hemisphere fruit exporters available to Northern Hemisphere markets. AI-generated editorial illustration.</p>',
               '<img class="story-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Shine_Muscat_Grape_from_Peru.jpg?width=1200" alt="Shine Muscat grapes identified by the photographer as from Peru">\n<p class="caption">Shine Muscat grapes identified by the photographer as from Peru. <a href="https://commons.wikimedia.org/wiki/File:Shine_Muscat_Grape_from_Peru.jpg">Photo: Dinkun Chen / Wikimedia Commons</a>, CC BY-SA 4.0.</p>',
-              'Peru grape photo caption')
-          p = replace_once(p,
+              'Peru grapes'
+            ),
+            (
               '<img class="story-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Oranges_growing_on_the_Piekenierskloof_pass.jpg?width=1200" alt="AI-generated editorial illustration of workers handling oranges in a South African orchard">\n<p class="caption">South Africa is a major Southern Hemisphere citrus exporter. AI-generated editorial illustration.</p>',
               '<img class="story-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Oranges_growing_on_the_Piekenierskloof_pass.jpg?width=1200" alt="Oranges growing above Citrusdal on the Piekenierskloof Pass in South Africa">\n<p class="caption">Oranges growing above Citrusdal on the Piekenierskloof Pass in South Africa. <a href="https://commons.wikimedia.org/wiki/File:Oranges_growing_on_the_Piekenierskloof_pass.jpg">Photo: Discott / Wikimedia Commons</a>, CC BY-SA 4.0.</p>',
-              'South Africa orange photo caption')
-          p = replace_once(p,
+              'South Africa oranges'
+            ),
+            (
               '<img class="story-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Orange_harvest_1.jpg?width=1200" alt="AI-generated editorial illustration of workers picking oranges in Egypt">\n<p class="caption">Egypt is another large citrus-producing country supplying international markets. AI-generated editorial illustration.</p>',
               '<img class="story-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Orange_harvest_1.jpg?width=1200" alt="Orange harvest in Egypt">\n<p class="caption">Orange harvest in Egypt. <a href="https://commons.wikimedia.org/wiki/File:Orange_harvest_1.jpg">Photo: Doaa Adel / Wikimedia Commons</a>, CC BY-SA 4.0.</p>',
-              'Egypt orange photo caption')
-          p = replace_once(p,
+              'Egypt oranges'
+            ),
+            (
               '<img class="story-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Harvesting_Semillon_grapes_at_Gisborne_Peak.jpg?width=1200" alt="AI-generated editorial illustration of an apple harvest in Australia">\n<p class="caption">Counter-season suppliers such as Australia and other Southern Hemisphere producers can fill some seasonal gaps. AI-generated editorial illustration.</p>',
               '<img class="story-art" src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Harvesting_Semillon_grapes_at_Gisborne_Peak.jpg?width=1200" alt="Harvesting Sémillon grapes at Gisborne Peak in Victoria, Australia">\n<p class="caption">Harvesting Sémillon grapes at Gisborne Peak in Victoria, Australia. <a href="https://commons.wikimedia.org/wiki/File:Harvesting_Semillon_grapes_at_Gisborne_Peak.jpg">Photo: Nathan Jones / Wikimedia Commons</a>, CC BY 2.0.</p>',
-              'Australia grape photo caption')
+              'Australia grapes'
+            ),
+          ]
+          for old, new, label in replacements:
+              p = one(p, old, new, label)
           corr = '<p><strong>Correction, Sept. 4:</strong> Earlier image captions incorrectly described several Wikimedia Commons photographs as AI-generated illustrations. The captions, credits and Ontario lead image have been corrected.</p>'
           if corr not in p:
-              p = replace_once(p, '<div class="sources"><b>Sources</b>', corr + '\n<div class="sources"><b>Sources</b>', 'produce correction note')
+              p = one(p, '<div class="sources"><b>Sources</b>', corr + '\n<div class="sources"><b>Sources</b>', 'produce correction')
           produce.write_text(p, encoding='utf-8')
 
           home = Path('Canada/index.html')
           h = home.read_text(encoding='utf-8')
-          h = replace_once(h,
+          h = one(h,
               '<img src="assets/mark-carney-smiling-white-house-may-2025.jpg" alt="Canada trade diversification editorial art"',
               '<img src="assets/mark-carney-smiling-white-house-may-2025.jpg" alt="Prime Minister Mark Carney during a May 2025 White House visit"',
               'homepage trade alt')
-          h = replace_once(h,
+          h = one(h,
               '<img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Organic_Greenhouse_Tomatoes%2C_Oaxaca.jpg?width=1200" alt="Produce market">',
               '<img src="assets/ontario-farmers-market-brampton-2008.jpg" alt="Harvest-season farmers market in Brampton, Ontario">',
-              'homepage Ontario produce art')
+              'homepage produce art')
           home.write_text(h, encoding='utf-8')
           PY
 
@@ -111,7 +121,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/sync_canada_discovery.py
+          python3 scripts/sync_canada_discovery.py --from-homepage
           python3 scripts/validate_canada_discovery.py
           python3 scripts/validate_canada_publish.py
           grep -Fq 'assets/ontario-farmers-market-brampton-2008.jpg' Canada/index.html
@@ -126,11 +136,6 @@ jobs:
           git rm -f .github/workflows/canada-sept4-image-attribution-fix.yml
           git config user.name 'canada-at-war-corrections[bot]'
           git config user.email 'canada-at-war-corrections[bot]@users.noreply.github.com'
-          git add Canada/index.html \
-                  Canada/non-us-exports-record-july-2026-september-3-2026.html \
-                  Canada/ontario-grocers-american-produce-alternatives-september-3-2026.html \
-                  Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml \
-                  Canada/assets/ontario-farmers-market-brampton-2008.jpg \
-                  .github/workflows/canada-sept4-image-attribution-fix.yml
+          git add -A
           git commit -m 'Correct Canada image credits and Ontario produce lead art'
           git push origin HEAD:main
