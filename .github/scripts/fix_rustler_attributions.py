@@ -7,12 +7,27 @@ ROOT = Path("Rustler")
 def patch(path: str, replacements: list[tuple[str, str]]) -> None:
     p = ROOT / path
     text = p.read_text(encoding="utf-8")
+    changed = False
     for old, new in replacements:
-        if old not in text:
+        if old in text:
+            text = text.replace(old, new)
+            changed = True
+        elif new in text:
+            continue
+        else:
             raise SystemExit(f"Expected text not found in {path}: {old[:120]!r}")
-        text = text.replace(old, new)
-    p.write_text(text, encoding="utf-8")
-    print(f"fixed attribution: {path}")
+    if changed:
+        p.write_text(text, encoding="utf-8")
+    print(f"fixed: {path}")
+
+
+def append_once(path: str, marker: str, block: str) -> None:
+    p = ROOT / path
+    text = p.read_text(encoding="utf-8")
+    if marker not in text:
+        text = text.rstrip() + "\n" + block.strip() + "\n"
+        p.write_text(text, encoding="utf-8")
+    print(f"checked style patch: {path}")
 
 
 patch("notre-dame-road-closure-council-answers-september-2026.html", [
@@ -52,6 +67,10 @@ patch("embrun-water-tower-delay-september-2026.html", [
      "<p>Township staff cautioned that the fixed charge is part of the money that supports the water system whether or not residents are watering lawns. A reduction would lower the transfer to the asset-replacement reserve, creating a shortfall that would have to be made up somewhere else.</p>"),
     ("<blockquote>“Someone has to pay for it. It’s not money that’s disappeared.” — Township administration</blockquote>",
      "<blockquote>“Someone has to pay for it. It’s not money that’s disappeared.” — Township staff</blockquote>"),
+    ("<meta property=\"og:image\" content=\"https://therustler.neocities.org/assets/township-logo-v2.png\">",
+     "<meta property=\"og:image\" content=\"https://therustler.neocities.org/assets/town-hall.jpg\">"),
+    ("<figure class=\"article-visual\"><img src=\"assets/township-logo-v2.png\" alt=\"Township of Russell logo\"><figcaption class=\"photo-credit\">Township of Russell</figcaption></figure>",
+     "<figure class=\"article-visual\"><img src=\"assets/town-hall.jpg\" alt=\"Russell Township Town Hall\"><figcaption class=\"photo-credit\">Russell Township file photo</figcaption></figure>"),
 ])
 
 patch("autumn-in-the-country-2000-russell-grant-2026.html", [
@@ -61,7 +80,23 @@ patch("autumn-in-the-country-2000-russell-grant-2026.html", [
 
 patch("index.html", [
     ("<p>Staff says the diversified borrowing plan can save millions while spreading future refinancing risk. Coun. Charles Armstrong calls it “prudent.”</p>",
-     "<p>Treasurer Sébastien Dagenais says the diversified borrowing plan can save millions while spreading future refinancing risk. Coun. Charles Armstrong calls it “prudent.”</p>"),
+     "<p>Treasurer Sébastien Dagenais says the diversified borrowing plan can save millions while spreading future refinancing risk.</p>"),
     ("<p>“We’re now looking at the end of September,” staff told council. A rebate question is also on the table.</p>",
      "<p>“We’re now looking at the end of September,” infrastructure executive Jonathan Bourgon told council. A rebate question is also on the table.</p>"),
+    ("<figure><a href=\"embrun-water-tower-delay-september-2026.html\"><img src=\"assets/township-logo-v2.png\" alt=\"Township of Russell logo\"></a><figcaption class=\"photo-credit\">Township of Russell</figcaption></figure>",
+     "<figure><a href=\"embrun-water-tower-delay-september-2026.html\"><img src=\"assets/town-hall.jpg\" alt=\"Russell Township Town Hall\"></a><figcaption class=\"photo-credit\">Russell Township file photo</figcaption></figure>"),
 ])
+
+# Cache-bust the corrected mobile stylesheet on every story page.
+for page in ROOT.glob("*.html"):
+    text = page.read_text(encoding="utf-8")
+    new = text.replace('href="site.css?v=4"', 'href="site.css?v=5"').replace('href="site.css"', 'href="site.css?v=5"')
+    if new != text:
+        page.write_text(new, encoding="utf-8")
+
+append_once("site.css", "Mobile story-image compaction v5", r'''/* Mobile story-image compaction v5 */
+@media(max-width:570px){
+  .photo-card img:not([src$="ucpr.jpg"]):not([src$="eohu.jpg"]):not([src$="township-logo-v2.png"]){aspect-ratio:16/9;object-fit:cover}
+  .photo-card img[src$="autumn-photo-expo.jpg"]{object-position:50% 58%}
+  .article-visual img:not([src$="ucpr.jpg"]):not([src$="eohu.jpg"]):not([src$="township-logo-v2.png"]){max-height:360px;object-fit:cover}
+}''')
