@@ -64,7 +64,7 @@ def save_from_page(name: str, page: str, keywords: list[str], fallback: str) -> 
         for src,alt,cls in p.images:
             hay=f"{src} {alt} {cls}".lower()
             score=sum(4 for k in keywords if k.lower() in hay)
-            if any(x in hay for x in ["icon","spinner","avatar"]): score-=3
+            if any(x in hay for x in ["icon","spinner","avatar","living wage"]): score-=8
             if score>0: scored.append((score,src,alt))
         scored.sort(reverse=True)
         for _,src,alt in scored:
@@ -91,13 +91,15 @@ if not save_direct("main-street.jpg","https://www.therecordnews.ca/wp-content/up
 
 # Current official/civic pages. If a page has no usable photo, a real official Township photo is used rather than fake local photography.
 save_from_page("notre-dame.jpg","https://russell.ca/fr/construction-et-developpement/projets-en-cours/projet-de-rehabilitation-de-la-rue-notre-dame/",["zone de construction","construction","fermeture","closure"],"town-hall.jpg")
-save_from_page("water-tower.jpg","https://russell.ca/news-and-notices/important-update-on-embrun-water-restrictions/",["water","tower","eau","chateau"],"town-hall.jpg")
+save_from_page("water-tower.jpg","https://russell.ca/news-and-notices/important-update-on-embrun-water-restrictions/",["water tower","chateau d'eau","water restrictions","restrictions"],"town-hall.jpg")
 save_from_page("autumn-photo-expo.jpg","https://russell.ca/culture-and-community/your-community/photography-club/photo-expo/",["poster","photo expo","exposition","recreational trail"],"town-hall.jpg")
 save_from_page("trail.jpg","https://russell.ca/",["russell weir","trail","sentier"],"town-hall.jpg")
 save_from_page("library-ai.jpg","https://russellbiblio.com/2026/08/18/practical-ai-skills-for-everyday-life/",["ai written","computer","laptop"],"town-hall.jpg")
-save_from_page("eorn.jpg","https://eorn.ca/340593-2/",["speakers","cell gap","august 20"],"town-hall.jpg")
+# Use a public EORN page that exposes its own branded logo image, rather than the event page that blocks automated requests.
+save_from_page("eorn.jpg","https://eorn.ca/resources-for-residents/",["eorn_logo-subtext","eastern ontario regional network"],"town-hall.jpg")
 save_from_page("ucpr.jpg","https://en.prescott-russell.on.ca/",["prescott","russell","counties","logo"],"town-hall.jpg")
-save_from_page("eohu.jpg","https://www.eohu.ca/en/my-environment/west-nile-virus",["west nile","mosquito","eohu","logo"],"town-hall.jpg")
+# EOHU's general West Nile page contains unrelated partner logos. Use a page whose header explicitly exposes the health-unit identity.
+save_from_page("eohu.jpg","https://eohu.ca/en/breastfeeding/more-formula-and-bottle-feeding-resources",["eastern ontario health unit","bureau de santé de l'est de l'ontario","bureau de sante de l'est de l'ontario"],"town-hall.jpg")
 
 required=["rec-complex.jpg","town-hall.jpg","waste-collection.jpg","main-street.jpg","notre-dame.jpg","water-tower.jpg","autumn-photo-expo.jpg","trail.jpg","library-ai.jpg","eorn.jpg","ucpr.jpg","eohu.jpg"]
 missing=[x for x in required if not os.path.exists(os.path.join(OUT,x)) or os.path.getsize(os.path.join(OUT,x))<1500]
