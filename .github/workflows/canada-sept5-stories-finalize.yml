@@ -1,0 +1,173 @@
+name: Canada Sept. 5 stories final package
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-sept5-stories-finalize.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - name: Wait for older Neocities deploys
+        env: {GH_TOKEN: '${{ github.token }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=30"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active normal deploys: $active"
+            [[ "$active" == 0 ]] && break
+            sleep 5
+          done
+          json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+          [[ "$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")" == 0 ]]
+
+      - name: Patch complete Canada homepage and discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          import re
+          C=Path('Canada'); H=C/'index.html'
+          trade='trump-end-canada-trade-us-cost-september-5-2026.html'
+          maga='magaheads-trump-no-trade-canada-september-5-2026.html'
+          quiet='washington-talks-ottawa-stops-answering-september-5-2026.html'
+          doj='doj-canada-pause-misunderstanding-trump-fed-september-4-2026.html'
+          oldtrade='trump-fed-trade-deficit-threat-september-4-2026.html'
+          oldmaga='magaheads-washington-canada-message-september-2-2026.html'
+          for slug in [trade,maga,quiet,doj,oldtrade]:
+              if not (C/slug).exists(): raise SystemExit(f'Missing required article: {slug}')
+          for art in ['assets/us-hand-crushing-canada-editorial-september-5-2026.jpg','assets/george-washington-exhausted-editorial-september-5-2026.jpg','assets/lady-justice-canada-antitrust-sept4-2026.jpg','assets/magaheads-white-house-hands-september-2-2026.svg']:
+              if not (C/art).exists(): raise SystemExit(f'Missing required art: {art}')
+          h=H.read_text(encoding='utf-8')
+          protected=['CANADA_AT_WAR_MASTHEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','How Lying Works','id="must-read-library"']
+          missing=[x for x in protected if x not in h]
+          if missing: raise SystemExit(f'Protected markers missing before edit: {missing}')
+          before=h.count('<article class="story')
+          now=datetime.now(ZoneInfo('America/Toronto'))
+          band=now.strftime('UPDATED · %B %-d, %Y · %-I:%M %p ET').upper().replace(' AM ET',' A.M. ET').replace(' PM ET',' P.M. ET')
+          display=now.strftime('Published Sept. 5, 2026 · %-I:%M %p ET').replace('AM','a.m.').replace('PM','p.m.')
+          hero=f'''<!-- CANADA_LEAD_BEGIN -->\n<section class="hero"><div class="hero-in"><div class="k">Analysis · Canada–U.S. trade · United States economy</div><h1>TRUMP SAYS AMERICA COULD STOP TRADING WITH CANADA. HERE’S WHAT AMERICA WOULD LOSE.</h1><img src="assets/us-hand-crushing-canada-editorial-september-5-2026.jpg" alt="AI-generated editorial illustration of a giant American hand pressing down on a fractured map of Canada" style="display:block;width:100%;max-width:900px;height:auto;margin:18px auto 26px"><p>No major study models the literal zero-trade threat Trump described Friday. Research on much smaller disruptions already shows the United States would damage its own factories, energy system, farms, exporters and household incomes.</p><a class="read" href="{trade}">Read the analysis →</a><p class="meta">{display}</p></div></section>\n<!-- CANADA_LEAD_END -->'''
+          h,n=re.subn(r'<!-- CANADA_LEAD_BEGIN -->.*?<!-- CANADA_LEAD_END -->',hero,h,count=1,flags=re.S)
+          if n!=1: raise SystemExit('Lead block replacement failed')
+          def rm(text,href):
+              return re.sub(r'<article\b[^>]*>(?:(?!</article>).)*?href="'+re.escape(href)+r'"(?:(?!</article>).)*?</article>\s*','',text,flags=re.S)
+          for href in [trade,maga,quiet,doj,oldtrade,oldmaga]:
+              h=rm(h,href)
+          cards=f'''<article class="story story-feature"><div><div class="k" style="color:#b51f2a">MAGAHEADS · September 5 · Daily briefing</div><h2>MAGAHEADS: TRUMP MOVES FROM TARIFFS TO TALK OF ENDING TRADE WITH CANADA</h2><p>A broad Friday-morning threat became explicitly Canadian later in the day, when Trump said Washington could simply stop trading with Canada. Jamieson Greer also carried the dispute into a fresh weekend interview.</p><a class="read" href="{maga}">Read MAGAHEADS →</a></div><img src="assets/magaheads-white-house-hands-september-2-2026.svg" alt="MAGAHEADS editorial illustration"></article>\n<article class="story story-feature"><div><div class="k" style="color:#b51f2a">Analysis · Canada–U.S. relations · Public messaging</div><h2>WASHINGTON CAN’T STOP TALKING ABOUT CANADA. OTTAWA HAS STOPPED ANSWERING EVERY VOLLEY.</h2><p>Trump and his economic officials have kept Canada in an almost daily public argument. Ottawa is still acting, but it has not matched Washington’s public cadence since Carney answered Thursday.</p><a class="read" href="{quiet}">Read the analysis →</a></div><img src="assets/george-washington-exhausted-editorial-september-5-2026.jpg" alt="AI-generated editorial illustration of an exhausted George Washington"></article>\n<article class="story story-feature"><div><div class="k" style="color:#b51f2a">United States · Justice Department · Canada–U.S. relations</div><h2>DOJ CALLS ‘PAUSE ON CANADA’ A MISUNDERSTANDING — AS WASHINGTON LURCHES THROUGH A DAY OF ERRATIC POLICY</h2><p>A written antitrust instruction told staff to stop cooperation with Canada. The department says it only meant to delay a meeting. The replacement Lady Justice illustration is now presented at publication resolution.</p><a class="read" href="{doj}">Read the report →</a></div><img src="assets/lady-justice-canada-antitrust-sept4-2026.jpg" alt="AI-generated editorial illustration of a distressed Lady Justice"></article>'''
+          if '<main class="wrap">' not in h: raise SystemExit('Main feed anchor missing')
+          h=h.replace('<main class="wrap">','<main class="wrap">\n'+cards,1)
+          h=re.sub(r'<div class="top">UPDATED · .*?</div>',f'<div class="top">{band}</div>',h,count=1,flags=re.S)
+          missing=[x for x in protected if x not in h]
+          if missing: raise SystemExit(f'Protected markers missing after edit: {missing}')
+          for href in [trade,maga,quiet,doj]:
+              if h.count(f'href="{href}"')!=1: raise SystemExit(f'Homepage link count failed for {href}: {h.count(f"href=\"{href}\"")}')
+          if f'href="{oldtrade}"' in h: raise SystemExit('Superseded Trump card still on homepage')
+          if f'href="{oldmaga}"' in h: raise SystemExit('Superseded MAGAHEADS card still on homepage')
+          if h.count('<article class="story') < before-2: raise SystemExit('Unexpected story-card loss')
+          H.write_text(h,encoding='utf-8')
+          PY
+          python3 scripts/sync_canada_discovery.py trump-end-canada-trade-us-cost-september-5-2026.html magaheads-trump-no-trade-canada-september-5-2026.html washington-talks-ottawa-stops-answering-september-5-2026.html trump-fed-trade-deficit-threat-september-4-2026.html
+          python3 scripts/validate_canada_publish.py
+          python3 scripts/validate_canada_discovery.py
+
+      - name: Commit final source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'canada-at-war-finalizer[bot]'
+          git config user.email 'canada-at-war-finalizer[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml
+          if git diff --cached --quiet; then
+            echo 'No source delta to commit'
+            echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          git commit -m 'Canada: publish Sept. 5 trade and MAGAHEADS package'
+          local_sha="$(git rev-parse HEAD)"
+          if ! git push origin HEAD:main; then
+            remote_sha="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+            if [[ "$remote_sha" != "$local_sha" ]]; then
+              echo "Push race: remote=${remote_sha} local=${local_sha}" >&2
+              exit 1
+            fi
+            echo 'Remote already contains exact final commit; continuing'
+          fi
+          echo "FINAL_SHA=${local_sha}" >> "$GITHUB_ENV"
+
+      - name: Wait for normal deploys after final commit
+        env: {GH_TOKEN: '${{ github.token }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=30"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active normal deploys: $active"
+            [[ "$active" == 0 ]] && break
+            sleep 5
+          done
+          json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+          [[ "$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")" == 0 ]]
+
+      - name: Direct upload final Canada package
+        env: {NEOCITIES_API_KEY: '${{ secrets.NEOCITIES_API_KEY }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]]
+          files=(
+            Canada/index.html
+            Canada/trump-end-canada-trade-us-cost-september-5-2026.html
+            Canada/magaheads-trump-no-trade-canada-september-5-2026.html
+            Canada/washington-talks-ottawa-stops-answering-september-5-2026.html
+            Canada/trump-fed-trade-deficit-threat-september-4-2026.html
+            Canada/doj-canada-pause-misunderstanding-trump-fed-september-4-2026.html
+            Canada/assets/us-hand-crushing-canada-editorial-september-5-2026.jpg
+            Canada/assets/george-washington-exhausted-editorial-september-5-2026.jpg
+            Canada/assets/lady-justice-canada-antitrust-sept4-2026.jpg
+            Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml
+          )
+          for file in "${files[@]}"; do
+            test -s "$file"
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F "${file}=@${file}" https://neocities.org/api/upload
+          done
+
+      - name: Final public verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="${FINAL_SHA::8}"
+          check(){ u="$1"; m="$2"; f="$(mktemp)"; ok=0; for i in 1 2 3 4 5 6; do c="$(curl -L -sS -o "$f" -w '%{http_code}' "${u}?v=${short}&verify=${i}" || true)"; [[ "$c" == 200 ]] && grep -Fq "$m" "$f" && { ok=1; break; }; sleep 3; done; echo "verify $u http=$c marker=$m"; rm -f "$f"; [[ "$ok" == 1 ]]; }
+          check 'https://brazilginga.neocities.org/Canada/' 'TRUMP SAYS AMERICA COULD STOP TRADING WITH CANADA. HERE’S WHAT AMERICA WOULD LOSE.'
+          check 'https://brazilginga.neocities.org/Canada/trump-end-canada-trade-us-cost-september-5-2026.html' 'TRUMP SAYS AMERICA COULD STOP TRADING WITH CANADA. HERE’S WHAT AMERICA WOULD LOSE.'
+          check 'https://brazilginga.neocities.org/Canada/magaheads-trump-no-trade-canada-september-5-2026.html' 'MAGAHEADS: TRUMP MOVES FROM TARIFFS TO TALK OF ENDING TRADE WITH CANADA'
+          check 'https://brazilginga.neocities.org/Canada/washington-talks-ottawa-stops-answering-september-5-2026.html' 'WASHINGTON CAN’T STOP TALKING ABOUT CANADA. OTTAWA HAS STOPPED ANSWERING EVERY VOLLEY.'
+          check 'https://brazilginga.neocities.org/Canada/trump-fed-trade-deficit-threat-september-4-2026.html' 'TRUMP NOW NAMES CANADA IN THREAT TO END TRADE AS HE PRESSURES FED'
+          check 'https://brazilginga.neocities.org/Canada/doj-canada-pause-misunderstanding-trump-fed-september-4-2026.html' 'DOJ CALLS ‘PAUSE ON CANADA’ A MISUNDERSTANDING'
+          check 'https://brazilginga.neocities.org/Canada/archive.html' 'MAGAHEADS: TRUMP MOVES FROM TARIFFS TO TALK OF ENDING TRADE WITH CANADA'
+          for art in lady-justice-canada-antitrust-sept4-2026.jpg us-hand-crushing-canada-editorial-september-5-2026.jpg george-washington-exhausted-editorial-september-5-2026.jpg; do
+            code="$(curl -L -sS -o /tmp/art -w '%{http_code}' "https://brazilginga.neocities.org/Canada/assets/${art}?v=${short}")"
+            size="$(wc -c </tmp/art)"
+            echo "verify art $art http=$code bytes=$size"
+            [[ "$code" == 200 && "$size" -gt 5000 ]]
+          done
+          echo "FINAL VERIFIED SHA=${FINAL_SHA}"
