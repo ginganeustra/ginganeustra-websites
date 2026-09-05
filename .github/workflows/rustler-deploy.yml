@@ -1,0 +1,59 @@
+name: Publish The Rustler to Neocities
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild masthead asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p Rustler/assets
+          cat .rustler-upload/masthead-*.b64 | base64 -d > Rustler/assets/rustler-masthead.webp
+          test -s Rustler/assets/rustler-masthead.webp
+      - name: Validate edition
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'Council puts brakes on another full Notre-Dame shutdown' Rustler/index.html
+          grep -Fq 'In the TWP' Rustler/index.html
+          grep -Fq 'The Rustler' Rustler/index.html
+          test -s Rustler/sitemap.xml
+      - name: Upload Rustler site
+        env:
+          NEOCITIES_RUSTLER_API_KEY: ${{ secrets.NEOCITIES_RUSTLER_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_RUSTLER_API_KEY:-}" ]] || { echo 'Missing NEOCITIES_RUSTLER_API_KEY secret' >&2; exit 1; }
+          while IFS= read -r -d '' file; do
+            rel="${file#Rustler/}"
+            echo "Uploading $rel"
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors \
+              -H "Authorization: Bearer $NEOCITIES_RUSTLER_API_KEY" \
+              -F "${rel}=@${file}" https://neocities.org/api/upload
+          done < <(find Rustler -type f -print0 | sort -z)
+      - name: Verify live edition
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          for attempt in 1 2 3 4 5; do
+            code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "https://therustler.neocities.org/?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            if [[ "$code" == "200" ]] && grep -Fq 'Council puts brakes on another full Notre-Dame shutdown' "$tmp"; then
+              echo 'Verified The Rustler live'
+              rm -f "$tmp"
+              exit 0
+            fi
+            sleep 3
+          done
+          cat "$tmp" || true
+          rm -f "$tmp"
+          exit 1
