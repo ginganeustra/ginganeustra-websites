@@ -8,6 +8,7 @@ on:
     paths:
       - 'Rustler/**'
       - '.rustler-upload/**'
+      - '.github/scripts/fetch_rustler_visuals.py'
       - '.github/workflows/rustler-deploy.yml'
 
 permissions:
@@ -31,13 +32,25 @@ jobs:
             head -c 1620 .rustler-upload/masthead-05.b64
           } | base64 -d > Rustler/assets/rustler-masthead.webp
           test -s Rustler/assets/rustler-masthead.webp
+      - name: Fetch official Rustler visuals
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/fetch_rustler_visuals.py
+          find Rustler/assets -type f -maxdepth 1 -print -exec ls -lh {} \;
       - name: Validate edition
         shell: bash
         run: |
           set -euo pipefail
           grep -Fq 'Council puts brakes on another full Notre-Dame shutdown' Rustler/index.html
           grep -Fq 'In the TWP' Rustler/index.html
-          grep -Fq 'The Rustler' Rustler/index.html
+          grep -Fq 'Light rain' Rustler/index.html
+          grep -Fq 'photo-grid' Rustler/index.html
+          grep -Fq 'Keeping one lane open' Rustler/notre-dame-road-closure-council-answers-september-2026.html
+          grep -Fq 'I think it’s prudent' Rustler/recreation-complex-70-million-debt-financing-september-2026.html
+          test -s Rustler/assets/notre-dame.jpg
+          test -s Rustler/assets/rec-complex.jpg
+          test -s Rustler/assets/main-street.jpg
           test -s Rustler/sitemap.xml
       - name: Upload Rustler site
         env:
@@ -58,15 +71,18 @@ jobs:
         run: |
           set -euo pipefail
           tmp="$(mktemp)"
-          for attempt in 1 2 3 4 5; do
+          img="$(mktemp)"
+          for attempt in 1 2 3 4 5 6; do
             code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "https://therustler.neocities.org/?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            if [[ "$code" == "200" ]] && grep -Fq 'Council puts brakes on another full Notre-Dame shutdown' "$tmp"; then
-              echo 'Verified The Rustler live'
-              rm -f "$tmp"
+            imgcode="$(curl -L -sS -o "$img" -w '%{http_code}' "https://therustler.neocities.org/assets/rec-complex.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            if [[ "$code" == "200" ]] && [[ "$imgcode" == "200" ]] && grep -Fq 'Keeping one lane open' "$tmp" && grep -Fq 'photo-grid' "$tmp" && [[ -s "$img" ]]; then
+              echo 'Verified The Rustler photo-rich edition live'
+              rm -f "$tmp" "$img"
               exit 0
             fi
-            sleep 3
+            sleep 4
           done
+          echo 'Homepage verification body:'
           cat "$tmp" || true
-          rm -f "$tmp"
+          rm -f "$tmp" "$img"
           exit 1
