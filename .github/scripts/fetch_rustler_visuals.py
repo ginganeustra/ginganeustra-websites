@@ -56,7 +56,7 @@ class ImgParser(HTMLParser):
             self.og.append(d["content"])
 
 
-def save_from_page(name: str, page: str, keywords: list[str], fallback: str) -> bool:
+def save_from_page(name: str, page: str, keywords: list[str], fallback: str, allow_og: bool = True) -> bool:
     try:
         html=fetch(page).decode("utf-8","ignore")
         p=ImgParser(); p.feed(html)
@@ -71,15 +71,16 @@ def save_from_page(name: str, page: str, keywords: list[str], fallback: str) -> 
             if save_direct(name,urllib.parse.urljoin(page,src)):
                 print(f"matched alt for {name}: {alt}")
                 return True
-        for src in p.og:
-            if save_direct(name,urllib.parse.urljoin(page,src)): return True
+        if allow_og:
+            for src in p.og:
+                if save_direct(name,urllib.parse.urljoin(page,src)): return True
         raise RuntimeError("no usable matching image")
     except Exception as e:
         print(f"WARN page {name}: {e}")
         return copy_fallback(name,fallback)
 
 
-# Stable official photographs. These are the preferred base set.
+# Stable official photographs.
 if not save_direct("rec-complex.jpg","https://russell.ca/wp-content/uploads/2026/06/Rec-Complex.jpg"):
     raise SystemExit("Could not fetch official Recreation Complex photo")
 if not save_direct("town-hall.jpg","https://russell.ca/wp-content/uploads/2026/06/Town-Hall-at-Night_original.jpg"):
@@ -89,21 +90,26 @@ if not save_direct("waste-collection.jpg","https://russell.ca/wp-content/uploads
 if not save_direct("main-street.jpg","https://www.therecordnews.ca/wp-content/uploads/2026/09/TT-Russell-funding-announcement-RGB.jpg"):
     copy_fallback("main-street.jpg","town-hall.jpg")
 
-# Official people photography: mayor, council and a recreation-complex group that includes councillors and senior staff.
-save_from_page("mayor-council.jpg","https://russell.ca/",["mayor and council"],"town-hall.jpg")
-save_from_page("mayor-tarnowski.jpg","https://www.russell.ca/en/news/mike-tarnowski-sworn-in-as-mayor.aspx",["mike tarnowski"],"mayor-council.jpg")
-save_from_page("rec-groundbreaking.jpg","https://russell.ca/news-and-notices/groundbreaking-ceremony-at-the-recreation-complex/",["group in front of construction site","construction site","groundbreaking"],"rec-complex.jpg")
+# Official people photography and Township branding.
+save_from_page("mayor-council.jpg","https://russell.ca/",["mayor and council"],"town-hall.jpg",allow_og=False)
+# Use the mayor's own Township message page because it exposes a real portrait with alt text "Mike Tarnowski".
+save_from_page("mayor-tarnowski-v2.jpg","https://www.russell.ca/en/news/message-from-the-mayor-industrial-park.aspx",["mike tarnowski"],"mayor-council.jpg",allow_og=False)
+save_from_page("rec-groundbreaking.jpg","https://russell.ca/news-and-notices/groundbreaking-ceremony-at-the-recreation-complex/",["group in front of construction site","construction site","groundbreaking"],"rec-complex.jpg",allow_og=False)
+# The water-restriction notices do not carry a useful water-tower photo. Per Rustler policy, use the official Township logo rather than generic art.
+save_from_page("township-logo-v2.png","https://www.russell.ca/en/your-township/municipal-election-accessibility-plan.aspx",["township logo"],"town-hall.jpg",allow_og=False)
 
-# Current official/civic pages. If a page has no usable photo, a real official Township photo is used rather than fake local photography.
-save_from_page("notre-dame.jpg","https://russell.ca/fr/construction-et-developpement/projets-en-cours/projet-de-rehabilitation-de-la-rue-notre-dame/",["zone de construction","construction","fermeture","closure"],"town-hall.jpg")
-save_from_page("water-tower.jpg","https://russell.ca/news-and-notices/important-update-on-embrun-water-restrictions/",["water tower","chateau d'eau","water restrictions","restrictions"],"town-hall.jpg")
-save_from_page("autumn-photo-expo.jpg","https://russell.ca/culture-and-community/your-community/photography-club/photo-expo/",["poster","photo expo","exposition","recreational trail"],"town-hall.jpg")
-save_from_page("trail.jpg","https://russell.ca/",["russell weir","trail","sentier"],"town-hall.jpg")
-save_from_page("library-ai.jpg","https://russellbiblio.com/2026/08/18/practical-ai-skills-for-everyday-life/",["ai written","computer","laptop"],"town-hall.jpg")
-save_from_page("eorn.jpg","https://eorn.ca/resources-for-residents/",["eorn_logo-subtext","eastern ontario regional network"],"town-hall.jpg")
-save_from_page("ucpr.jpg","https://en.prescott-russell.on.ca/",["prescott","russell","counties","logo"],"town-hall.jpg")
-save_from_page("eohu.jpg","https://eohu.ca/en/breastfeeding/more-formula-and-bottle-feeding-resources",["eastern ontario health unit","bureau de santé de l'est de l'ontario","bureau de sante de l'est de l'ontario"],"town-hall.jpg")
+# Current official/civic pages.
+save_from_page("notre-dame.jpg","https://russell.ca/fr/construction-et-developpement/projets-en-cours/projet-de-rehabilitation-de-la-rue-notre-dame/",["zone de construction","construction","fermeture","closure"],"town-hall.jpg",allow_og=False)
+save_from_page("autumn-photo-expo.jpg","https://russell.ca/culture-and-community/your-community/photography-club/photo-expo/",["poster","photo expo","exposition","recreational trail"],"town-hall.jpg",allow_og=False)
+save_from_page("trail.jpg","https://russell.ca/",["russell weir","trail","sentier"],"town-hall.jpg",allow_og=False)
+save_from_page("library-ai.jpg","https://russellbiblio.com/2026/08/18/practical-ai-skills-for-every-life/",["ai written","computer","laptop"],"town-hall.jpg",allow_og=False)
+# Correct library URL fallback if the first spelling changes or redirects.
+if not os.path.exists(os.path.join(OUT,"library-ai.jpg")) or os.path.getsize(os.path.join(OUT,"library-ai.jpg"))<1500:
+    save_from_page("library-ai.jpg","https://russellbiblio.com/2026/08/18/practical-ai-skills-for-everyday-life/",["ai written","computer","laptop"],"town-hall.jpg",allow_og=False)
+save_from_page("eorn.jpg","https://eorn.ca/resources-for-residents/",["eorn_logo-subtext","eastern ontario regional network"],"town-hall.jpg",allow_og=False)
+save_from_page("ucpr.jpg","https://en.prescott-russell.on.ca/",["prescott","russell","counties","logo"],"town-hall.jpg",allow_og=False)
+save_from_page("eohu.jpg","https://eohu.ca/en/breastfeeding/more-formula-and-bottle-feeding-resources",["eastern ontario health unit","bureau de santé de l'est de l'ontario","bureau de sante de l'est de l'ontario"],"town-hall.jpg",allow_og=False)
 
-required=["rec-complex.jpg","town-hall.jpg","waste-collection.jpg","main-street.jpg","mayor-council.jpg","mayor-tarnowski.jpg","rec-groundbreaking.jpg","notre-dame.jpg","water-tower.jpg","autumn-photo-expo.jpg","trail.jpg","library-ai.jpg","eorn.jpg","ucpr.jpg","eohu.jpg"]
+required=["rec-complex.jpg","town-hall.jpg","waste-collection.jpg","main-street.jpg","mayor-council.jpg","mayor-tarnowski-v2.jpg","rec-groundbreaking.jpg","township-logo-v2.png","notre-dame.jpg","autumn-photo-expo.jpg","trail.jpg","library-ai.jpg","eorn.jpg","ucpr.jpg","eohu.jpg"]
 missing=[x for x in required if not os.path.exists(os.path.join(OUT,x)) or os.path.getsize(os.path.join(OUT,x))<1500]
 if missing: raise SystemExit("Missing Rustler visual assets: "+", ".join(missing))
