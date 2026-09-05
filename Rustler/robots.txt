@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://therustler.neocities.org/sitemap.xml
