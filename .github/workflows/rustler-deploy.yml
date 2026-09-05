@@ -39,7 +39,7 @@ jobs:
           set -euo pipefail
           python3 .github/scripts/fetch_rustler_visuals.py
           find Rustler/assets -type f -maxdepth 1 -print -exec ls -lh {} \;
-      - name: Apply verified quote attributions
+      - name: Apply verified quote attributions and mobile fixes
         shell: bash
         run: |
           set -euo pipefail
@@ -52,21 +52,24 @@ jobs:
           grep -Fq 'In the TWP' Rustler/index.html
           grep -Fq 'Light rain' Rustler/index.html
           grep -Fq 'photo-grid' Rustler/index.html
-          grep -Fq 'township-logo-v2.png' Rustler/index.html
+          grep -Fq 'site.css?v=5' Rustler/index.html
           grep -Fq 'mayor-tarnowski-v2.jpg' Rustler/index.html
+          grep -Fq 'Russell Township file photo' Rustler/index.html
+          ! grep -Fq 'township-logo-v2.png' Rustler/index.html
           grep -Fq 'Jonathan Bourgon' Rustler/notre-dame-road-closure-council-answers-september-2026.html
           grep -Fq 'Sébastien Dagenais' Rustler/recreation-complex-70-million-debt-financing-september-2026.html
           grep -Fq 'Jonathan Bourgon' Rustler/embrun-water-tower-delay-september-2026.html
+          grep -Fq 'assets/town-hall.jpg' Rustler/embrun-water-tower-delay-september-2026.html
+          ! grep -Fq 'township-logo-v2.png' Rustler/embrun-water-tower-delay-september-2026.html
           grep -Fq 'Township staff said an “important change”' Rustler/autumn-in-the-country-2000-russell-grant-2026.html
-          grep -Fq 'I think it’s prudent' Rustler/recreation-complex-70-million-debt-financing-september-2026.html
+          grep -Fq 'Mobile story-image compaction v5' Rustler/site.css
           test -s Rustler/assets/notre-dame.jpg
           test -s Rustler/assets/rec-complex.jpg
           test -s Rustler/assets/main-street.jpg
           test -s Rustler/assets/mayor-tarnowski-v2.jpg
-          test -s Rustler/assets/township-logo-v2.png
+          test -s Rustler/assets/town-hall.jpg
           test -s Rustler/assets/ucpr.jpg
           test -s Rustler/assets/eohu.jpg
-          file Rustler/assets/mayor-tarnowski-v2.jpg Rustler/assets/township-logo-v2.png Rustler/assets/ucpr.jpg Rustler/assets/eohu.jpg
           test -s Rustler/sitemap.xml
       - name: Upload Rustler site
         env:
@@ -87,22 +90,22 @@ jobs:
         run: |
           set -euo pipefail
           tmp="$(mktemp)"
-          notre="$(mktemp)"
-          finance="$(mktemp)"
           water="$(mktemp)"
+          css="$(mktemp)"
+          hall="$(mktemp)"
           for attempt in 1 2 3 4 5 6; do
             code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "https://therustler.neocities.org/?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            ncode="$(curl -L -sS -o "$notre" -w '%{http_code}' "https://therustler.neocities.org/notre-dame-road-closure-council-answers-september-2026.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            fcode="$(curl -L -sS -o "$finance" -w '%{http_code}' "https://therustler.neocities.org/recreation-complex-70-million-debt-financing-september-2026.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             wcode="$(curl -L -sS -o "$water" -w '%{http_code}' "https://therustler.neocities.org/embrun-water-tower-delay-september-2026.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            if [[ "$code" == "200" ]] && [[ "$ncode" == "200" ]] && [[ "$fcode" == "200" ]] && [[ "$wcode" == "200" ]] && grep -Fq 'Treasurer Sébastien Dagenais' "$tmp" && grep -Fq 'infrastructure executive Jonathan Bourgon' "$tmp" && grep -Fq 'Jonathan Bourgon' "$notre" && grep -Fq 'Sébastien Dagenais' "$finance" && grep -Fq 'Jonathan Bourgon' "$water"; then
-              echo 'Verified The Rustler named-attribution update live'
-              rm -f "$tmp" "$notre" "$finance" "$water"
+            ccode="$(curl -L -sS -o "$css" -w '%{http_code}' "https://therustler.neocities.org/site.css?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            hcode="$(curl -L -sS -o "$hall" -w '%{http_code}' "https://therustler.neocities.org/assets/town-hall.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            if [[ "$code" == "200" ]] && [[ "$wcode" == "200" ]] && [[ "$ccode" == "200" ]] && [[ "$hcode" == "200" ]] && grep -Fq 'Treasurer Sébastien Dagenais' "$tmp" && grep -Fq 'infrastructure executive Jonathan Bourgon' "$tmp" && grep -Fq 'site.css?v=5' "$tmp" && grep -Fq 'Russell Township file photo' "$tmp" && ! grep -Fq 'township-logo-v2.png' "$tmp" && grep -Fq 'Jonathan Bourgon' "$water" && grep -Fq 'assets/town-hall.jpg' "$water" && ! grep -Fq 'township-logo-v2.png' "$water" && grep -Fq 'Mobile story-image compaction v5' "$css" && [[ -s "$hall" ]]; then
+              echo 'Verified The Rustler mobile image correction live'
+              rm -f "$tmp" "$water" "$css" "$hall"
               exit 0
             fi
             sleep 4
           done
           echo 'Homepage verification body:'
           cat "$tmp" || true
-          rm -f "$tmp" "$notre" "$finance" "$water"
+          rm -f "$tmp" "$water" "$css" "$hall"
           exit 1
