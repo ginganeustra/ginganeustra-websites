@@ -1,0 +1,165 @@
+name: Canada emergency remove Kemptville CP story
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/canada-emergency-remove-kemptville-cp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: canada-emergency-remove-kemptville-cp
+  cancel-in-progress: false
+
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wait for older normal Neocities deploys
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=30"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active normal deploys: $active"
+            [[ "$active" == 0 ]] && break
+            sleep 3
+          done
+
+      - name: Remove story from repository and discovery surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          slug='kemptville-chair-maker-us-tariff-relocation-september-4-2026.html'
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git reset --hard origin/main
+            python3 - <<'PY'
+          from pathlib import Path
+          import re
+          slug='kemptville-chair-maker-us-tariff-relocation-september-4-2026.html'
+          url='https://brazilginga.neocities.org/Canada/'+slug
+          # Homepage: remove any full story card containing the slug.
+          p=Path('Canada/index.html'); t=p.read_text(encoding='utf-8')
+          t=re.sub(r'<article\b[^>]*>(?:(?!</article>).)*?href="'+re.escape(slug)+r'"(?:(?!</article>).)*?</article>\s*','',t,flags=re.S)
+          # Also remove any accidental standalone link remnants.
+          if slug in t:
+              raise SystemExit('Kemptville story still referenced on homepage after card removal')
+          p.write_text(t,encoding='utf-8')
+          # Archive: remove the archive card containing this href.
+          p=Path('Canada/archive.html'); t=p.read_text(encoding='utf-8')
+          t=re.sub(r'<article class="archive-card">(?:(?!</article>).)*?href="'+re.escape(slug)+r'"(?:(?!</article>).)*?</article>','',t,flags=re.S)
+          t=t.replace(slug,'')
+          p.write_text(t,encoding='utf-8')
+          # XML discovery: remove URL/news entries containing the exact public URL.
+          for name in ['Canada/sitemap.xml','sitemap.xml','news-sitemap.xml']:
+              p=Path(name); t=p.read_text(encoding='utf-8')
+              t=re.sub(r'\s*<url>(?:(?!</url>).)*?'+re.escape(url)+r'(?:(?!</url>).)*?</url>\s*','\n',t,flags=re.S)
+              if url in t:
+                  raise SystemExit(f'{name} still contains removed URL')
+              p.write_text(t,encoding='utf-8')
+          PY
+            rm -f "Canada/$slug"
+            # Guard critical shell before commit.
+            for marker in 'CANADA_AT_WAR_MASTHEAD_LOCK' 'THE TICK' 'tradingview-widget-container' 'canada-at-war-goose-eagle-v3.jpg' 'petition-paint-mix' 'How Lying Works' 'id="must-read-library"'; do
+              grep -Fq "$marker" Canada/index.html || { echo "Missing protected marker: $marker" >&2; exit 1; }
+            done
+            ! grep -Fq "$slug" Canada/index.html
+            ! grep -Fq "$slug" Canada/archive.html
+            git config user.name 'canada-at-war-emergency[bot]'
+            git config user.email 'canada-at-war-emergency[bot]@users.noreply.github.com'
+            git add -A Canada/index.html Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml "Canada/$slug" || true
+            if git diff --cached --quiet; then
+              echo 'Repository already clean.'
+              echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+              break
+            fi
+            git commit -m 'Canada: remove Kemptville Canadian Press story'
+            if git push origin HEAD:main; then
+              echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+              break
+            fi
+            if [[ "$attempt" == 5 ]]; then exit 1; fi
+            sleep 2
+          done
+
+      - name: Wait for clean-source normal deploy to settle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=30"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active normal deploys: $active"
+            [[ "$active" == 0 ]] && break
+            sleep 3
+          done
+
+      - name: Delete live story and force clean discovery pages to Neocities
+        env:
+          NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]]
+          git fetch origin main
+          git reset --hard origin/main
+          slug='kemptville-chair-maker-us-tariff-relocation-september-4-2026.html'
+          ! grep -Fq "$slug" Canada/index.html
+          ! grep -Fq "$slug" Canada/archive.html
+          # Neocities delete API removes the story URL itself.
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors \
+            -H "Authorization: Bearer $NEOCITIES_API_KEY" \
+            -d "filenames[]=Canada/$slug" \
+            https://neocities.org/api/delete
+          # Upload cleaned homepage/archive/discovery files directly after deletion.
+          curl --fail-with-body --show-error --retry 3 --retry-all-errors \
+            -H "Authorization: Bearer $NEOCITIES_API_KEY" \
+            -F 'Canada/index.html=@Canada/index.html' \
+            -F 'Canada/archive.html=@Canada/archive.html' \
+            -F 'Canada/sitemap.xml=@Canada/sitemap.xml' \
+            -F 'sitemap.xml=@sitemap.xml' \
+            -F 'news-sitemap.xml=@news-sitemap.xml' \
+            https://neocities.org/api/upload
+
+      - name: Verify it is off the live site
+        shell: bash
+        run: |
+          set -euo pipefail
+          slug='kemptville-chair-maker-us-tariff-relocation-september-4-2026.html'
+          base='https://brazilginga.neocities.org/Canada/'
+          tmp="$(mktemp)"
+          for attempt in 1 2 3 4 5 6; do
+            code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "${base}?removed=$(date +%s)-$attempt" || true)"
+            if [[ "$code" == '200' ]] && ! grep -Fqi "$slug" "$tmp" && ! grep -Fqi 'THE TARIFF IS PUSHING A KEMPTVILLE CHAIR MAKER' "$tmp"; then
+              echo 'Homepage verified clean.'
+              break
+            fi
+            [[ "$attempt" == 6 ]] && exit 1
+            sleep 2
+          done
+          for attempt in 1 2 3 4 5 6; do
+            code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "${base}${slug}?removed=$(date +%s)-$attempt" || true)"
+            if [[ "$code" != '200' ]] && ! grep -Fqi 'DFC Woodworks' "$tmp"; then
+              echo "Story URL verified removed: HTTP $code"
+              rm -f "$tmp"
+              exit 0
+            fi
+            [[ "$attempt" == 6 ]] && { cat "$tmp"; exit 1; }
+            sleep 2
+          done
