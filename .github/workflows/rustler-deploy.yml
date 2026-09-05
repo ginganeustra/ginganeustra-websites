@@ -9,6 +9,7 @@ on:
       - 'Rustler/**'
       - '.rustler-upload/**'
       - '.github/scripts/fetch_rustler_visuals.py'
+      - '.github/scripts/fix_rustler_attributions.py'
       - '.github/workflows/rustler-deploy.yml'
 
 permissions:
@@ -38,6 +39,11 @@ jobs:
           set -euo pipefail
           python3 .github/scripts/fetch_rustler_visuals.py
           find Rustler/assets -type f -maxdepth 1 -print -exec ls -lh {} \;
+      - name: Apply verified quote attributions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/fix_rustler_attributions.py
       - name: Validate edition
         shell: bash
         run: |
@@ -48,7 +54,10 @@ jobs:
           grep -Fq 'photo-grid' Rustler/index.html
           grep -Fq 'township-logo-v2.png' Rustler/index.html
           grep -Fq 'mayor-tarnowski-v2.jpg' Rustler/index.html
-          grep -Fq 'Keeping one lane open' Rustler/notre-dame-road-closure-council-answers-september-2026.html
+          grep -Fq 'Jonathan Bourgon' Rustler/notre-dame-road-closure-council-answers-september-2026.html
+          grep -Fq 'Sébastien Dagenais' Rustler/recreation-complex-70-million-debt-financing-september-2026.html
+          grep -Fq 'Jonathan Bourgon' Rustler/embrun-water-tower-delay-september-2026.html
+          grep -Fq 'Township staff said an “important change”' Rustler/autumn-in-the-country-2000-russell-grant-2026.html
           grep -Fq 'I think it’s prudent' Rustler/recreation-complex-70-million-debt-financing-september-2026.html
           test -s Rustler/assets/notre-dame.jpg
           test -s Rustler/assets/rec-complex.jpg
@@ -78,27 +87,22 @@ jobs:
         run: |
           set -euo pipefail
           tmp="$(mktemp)"
-          rec="$(mktemp)"
-          mayor="$(mktemp)"
-          logo="$(mktemp)"
-          ucpr="$(mktemp)"
-          eohu="$(mktemp)"
+          notre="$(mktemp)"
+          finance="$(mktemp)"
+          water="$(mktemp)"
           for attempt in 1 2 3 4 5 6; do
             code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "https://therustler.neocities.org/?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            reccode="$(curl -L -sS -o "$rec" -w '%{http_code}' "https://therustler.neocities.org/assets/rec-complex.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            mayorcode="$(curl -L -sS -o "$mayor" -w '%{http_code}' "https://therustler.neocities.org/assets/mayor-tarnowski-v2.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            logocode="$(curl -L -sS -o "$logo" -w '%{http_code}' "https://therustler.neocities.org/assets/township-logo-v2.png?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            ucprcode="$(curl -L -sS -o "$ucpr" -w '%{http_code}' "https://therustler.neocities.org/assets/ucpr.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            eohucode="$(curl -L -sS -o "$eohu" -w '%{http_code}' "https://therustler.neocities.org/assets/eohu.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            if [[ "$code" == "200" ]] && [[ "$reccode" == "200" ]] && [[ "$mayorcode" == "200" ]] && [[ "$logocode" == "200" ]] && [[ "$ucprcode" == "200" ]] && [[ "$eohucode" == "200" ]] && grep -Fq 'Keeping one lane open' "$tmp" && grep -Fq 'photo-grid' "$tmp" && grep -Fq 'site.css?v=4' "$tmp" && [[ -s "$rec" ]] && [[ -s "$mayor" ]] && [[ -s "$logo" ]] && [[ -s "$ucpr" ]] && [[ -s "$eohu" ]]; then
-              echo 'Verified The Rustler mobile-image fix live'
-              file "$rec" "$mayor" "$logo" "$ucpr" "$eohu" || true
-              rm -f "$tmp" "$rec" "$mayor" "$logo" "$ucpr" "$eohu"
+            ncode="$(curl -L -sS -o "$notre" -w '%{http_code}' "https://therustler.neocities.org/notre-dame-road-closure-council-answers-september-2026.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            fcode="$(curl -L -sS -o "$finance" -w '%{http_code}' "https://therustler.neocities.org/recreation-complex-70-million-debt-financing-september-2026.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            wcode="$(curl -L -sS -o "$water" -w '%{http_code}' "https://therustler.neocities.org/embrun-water-tower-delay-september-2026.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            if [[ "$code" == "200" ]] && [[ "$ncode" == "200" ]] && [[ "$fcode" == "200" ]] && [[ "$wcode" == "200" ]] && grep -Fq 'Treasurer Sébastien Dagenais' "$tmp" && grep -Fq 'infrastructure executive Jonathan Bourgon' "$tmp" && grep -Fq 'Jonathan Bourgon' "$notre" && grep -Fq 'Sébastien Dagenais' "$finance" && grep -Fq 'Jonathan Bourgon' "$water"; then
+              echo 'Verified The Rustler named-attribution update live'
+              rm -f "$tmp" "$notre" "$finance" "$water"
               exit 0
             fi
             sleep 4
           done
           echo 'Homepage verification body:'
           cat "$tmp" || true
-          rm -f "$tmp" "$rec" "$mayor" "$logo" "$ucpr" "$eohu"
+          rm -f "$tmp" "$notre" "$finance" "$water"
           exit 1
