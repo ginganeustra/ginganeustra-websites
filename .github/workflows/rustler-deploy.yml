@@ -2,6 +2,13 @@ name: Publish The Rustler to Neocities
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Rustler/**'
+      - '.rustler-upload/**'
+      - '.github/workflows/rustler-deploy.yml'
 
 permissions:
   contents: read
