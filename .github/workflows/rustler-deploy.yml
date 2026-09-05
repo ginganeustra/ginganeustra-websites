@@ -23,7 +23,13 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p Rustler/assets
-          cat .rustler-upload/masthead-*.b64 | base64 -d > Rustler/assets/rustler-masthead.webp
+          {
+            cat .rustler-upload/masthead-01.b64
+            cat .rustler-upload/masthead-02.b64
+            cat .rustler-upload/masthead-03.b64
+            head -c 16000 .rustler-upload/masthead-04.b64
+            head -c 1620 .rustler-upload/masthead-05.b64
+          } | base64 -d > Rustler/assets/rustler-masthead.webp
           test -s Rustler/assets/rustler-masthead.webp
       - name: Validate edition
         shell: bash
