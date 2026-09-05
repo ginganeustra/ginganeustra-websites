@@ -149,3 +149,5 @@ jobs:
           json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
           [[ "$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")" == 0 ]]
           echo "FINAL VERIFIED SHA=${FINAL_SHA}"
+
+# Triggered after verified staging parts were added.
