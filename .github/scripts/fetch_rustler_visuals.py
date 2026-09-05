@@ -92,10 +92,12 @@ if not save_direct("main-street.jpg","https://www.therecordnews.ca/wp-content/up
 
 # Official people photography and Township branding.
 save_from_page("mayor-council.jpg","https://russell.ca/",["mayor and council"],"town-hall.jpg",allow_og=False)
-save_from_page("mayor-tarnowski-v2.jpg","https://www.russell.ca/en/news/message-from-the-mayor-industrial-park.aspx",["mike tarnowski"],"mayor-council.jpg",allow_og=False)
+# Use the verified Mayor-and-Council photograph for the election card rather than a stale portrait URL that was returning a broken image.
+copy_fallback("mayor-tarnowski-v2.jpg","mayor-council.jpg")
 save_from_page("rec-groundbreaking.jpg","https://russell.ca/news-and-notices/groundbreaking-ceremony-at-the-recreation-complex/",["group in front of construction site","construction site","groundbreaking"],"rec-complex.jpg",allow_og=False)
-# The water-restriction notices do not carry a useful water-tower photo. Per Rustler policy, use the official Township logo rather than generic art.
-save_from_page("township-logo-v2.png","https://www.russell.ca/en/your-township/municipal-election-accessibility-plan.aspx",["township logo"],"town-hall.jpg",allow_og=False)
+# Official Russell Township logo, used when the source story has no usable photograph.
+if not save_direct("township-logo-v2.png","https://www.russell.ca/en/your-township/resources/Council/Township-Logo-Blue.png"):
+    copy_fallback("township-logo-v2.png","town-hall.jpg")
 
 # Current official/civic pages.
 save_from_page("notre-dame.jpg","https://russell.ca/fr/construction-et-developpement/projets-en-cours/projet-de-rehabilitation-de-la-rue-notre-dame/",["zone de construction","construction","fermeture","closure"],"town-hall.jpg",allow_og=False)
