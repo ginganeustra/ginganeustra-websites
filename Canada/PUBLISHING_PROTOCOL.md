@@ -15,6 +15,25 @@ Before the first repository write in a triggered task, the publishing agent must
 
 **Routine publishing is not a design task. Do not invent a new publication method.**
 
+## ABSOLUTE ORIGINAL-COPY RULE
+
+**Canada at War must never publish story copy that Canada at War did not produce. This is permanent and non-negotiable.**
+
+No article body, headline, deck, standfirst, subhead, caption, or other editorial prose may be copied from, republished from, lightly rewritten from, or passed through from Canadian Press, Reuters, Associated Press, CBC, Postmedia, The Globe and Mail, another newspaper or broadcaster, a wire service, a blog, a press release, a government release, an advocacy group, a corporate release, or any other outside source.
+
+Outside reporting and documents may be used only as **source material**. Facts must be independently checked where practical and then written in original Canada at War prose. Brief necessary quotations may be used only when clearly presented as quotations, accurately attributed, and kept within applicable copyright/fair-dealing limits. Links and source citations may be included as supporting material. An outside story's wording, paragraph sequence, structure, framing, or distinctive phrasing must not be reproduced as Canada at War copy.
+
+A draft supplied by another AI is also not automatically publishable. It is unverified input until its factual claims, quotations, figures, sourcing, and originality have been checked. If the provenance of any draft is uncertain, **stop and verify before publication**.
+
+Before publication, the publishing agent must be able to answer YES to both of these questions:
+
+1. Was this editorial copy produced specifically for Canada at War under the human editor's direction?
+2. Has any outside material been reduced to properly attributed source facts/quotations rather than reproduced as our copy?
+
+If either answer is NO or uncertain, the story must not be published.
+
+If externally produced copy is discovered after publication, treat it as an emergency removal: remove the story from the homepage, archive, repository and all discovery/sitemap surfaces; delete the live Neocities article; then verify that the homepage is clean and the former article URL no longer serves the story.
+
 ## Canonical routine path
 
 For a normal story publication the permitted path is:
@@ -192,7 +211,7 @@ The September 1, 2026 CBC/RNC publication exposed the failure mode this protocol
 
 A Canada at War story is done only when all of the following are true:
 
-- editorial copy is complete;
+- editorial copy is complete and confirmed original under the ABSOLUTE ORIGINAL-COPY RULE;
 - canonical article URL exists;
 - homepage placement matches the editor's instruction;
 - archive card, Canada sitemap, root sitemap and eligible news-sitemap records are current;
