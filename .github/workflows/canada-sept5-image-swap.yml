@@ -1,0 +1,129 @@
+name: Canada Sept. 5 image swap
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-sept5-image-swap.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wait for older Neocities deploys
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=30"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active normal deploys: $active"
+            [[ "$active" == 0 ]] && break
+            sleep 5
+          done
+
+      - name: Install exact image assets and patch only requested placements
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          import re, base64
+
+          C=Path('Canada')
+          H=C/'index.html'
+          trade=C/'trump-end-canada-trade-us-cost-september-5-2026.html'
+          quiet=C/'washington-talks-ottawa-stops-answering-september-5-2026.html'
+          hand=C/'assets/trump-hand-canada-september-5-2026.jpg'
+          hockey=C/'assets/magaheads-canada-hockey-september-5-2026.jpg'
+
+          # Exact images provided/created in this conversation, stored as compact JPEGs.
+          hand_b64='''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'''
+          # The hockey image is already in the conversation; fetch compact source from a file committed separately by the next recovery step.
+          if not hand.exists():
+              hand.write_bytes(base64.b64decode(hand_b64))
+          if not hockey.exists():
+              raise SystemExit('Hockey asset not installed yet')
+
+          t=trade.read_text(encoding='utf-8')
+          old='assets/canada-at-war-goose-eagle-v3.jpg'
+          oldfig=f'<figure><img class="lead-art" src="{old}" alt="Editorial illustration of a Canadian goose and an American eagle"><figcaption>Editorial illustration of a Canadian goose and an American eagle.</figcaption></figure>'
+          newfig='<figure><img class="lead-art" src="assets/trump-hand-canada-september-5-2026.jpg" alt="AI-generated editorial illustration of a giant American hand pressing down on a map of Canada"><figcaption>AI-generated editorial illustration supplied by the editor.</figcaption></figure>'
+          if oldfig not in t: raise SystemExit('Trade article image anchor missing')
+          trade.write_text(t.replace(oldfig,newfig,1),encoding='utf-8')
+
+          q=quiet.read_text(encoding='utf-8')
+          newfig2='<figure><img class="lead-art" src="assets/magaheads-canada-hockey-september-5-2026.jpg" alt="AI-generated MAGAHEADS editorial illustration of an American stone head beside a Canadian stone hockey player"><figcaption>AI-generated MAGAHEADS editorial illustration supplied by the editor.</figcaption></figure>'
+          if oldfig not in q: raise SystemExit('Washington article image anchor missing')
+          quiet.write_text(q.replace(oldfig,newfig2,1),encoding='utf-8')
+
+          h=H.read_text(encoding='utf-8')
+          protected=['CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK','tradingview-widget-container','petition-paint-mix','How Lying Works','id="must-read-library"']
+          miss=[x for x in protected if x not in h]
+          if miss: raise SystemExit(f'Protected markers missing before edit: {miss}')
+          lead_pat=r'(<!-- CANADA_LEAD_BEGIN -->.*?<h1>TRUMP SAYS AMERICA COULD STOP TRADING WITH CANADA\. HERE’S WHAT AMERICA WOULD LOSE\.</h1>)<img src="assets/canada-at-war-goose-eagle-v3\.jpg" alt="Editorial illustration of a Canadian goose and an American eagle"([^>]*>)'
+          h,n=re.subn(lead_pat,r'\1<img src="assets/trump-hand-canada-september-5-2026.jpg" alt="AI-generated editorial illustration of a giant American hand pressing down on a map of Canada"\2',h,count=1,flags=re.S)
+          if n!=1: raise SystemExit('Homepage lead image replacement failed')
+          quiet_pat=r'(<a class="read" href="washington-talks-ottawa-stops-answering-september-5-2026\.html">Read the analysis →</a></div>)<img src="assets/canada-at-war-goose-eagle-v3\.jpg" alt="Editorial illustration of a Canadian goose and an American eagle">'
+          h,n=re.subn(quiet_pat,r'\1<img src="assets/magaheads-canada-hockey-september-5-2026.jpg" alt="AI-generated MAGAHEADS editorial illustration of an American stone head beside a Canadian stone hockey player">',h,count=1,flags=re.S)
+          if n!=1: raise SystemExit('Homepage Washington card image replacement failed')
+          if 'mast-logo" src="assets/canada-at-war-goose-eagle-v3.jpg"' not in h: raise SystemExit('Masthead changed unexpectedly')
+          now=datetime.now(ZoneInfo('America/Toronto'))
+          band=now.strftime('UPDATED · %B %-d, %Y · %-I:%M %p ET').upper().replace(' AM ET',' A.M. ET').replace(' PM ET',' P.M. ET')
+          h=re.sub(r'<div class="top">UPDATED · .*?</div>',f'<div class="top">{band}</div>',h,count=1,flags=re.S)
+          miss=[x for x in protected if x not in h]
+          if miss: raise SystemExit(f'Protected markers missing after edit: {miss}')
+          H.write_text(h,encoding='utf-8')
+          PY
+
+          python3 scripts/validate_canada_publish.py
+          python3 scripts/validate_canada_discovery.py
+
+      - name: Commit exact source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'canada-at-war-image-swap[bot]'
+          git config user.email 'canada-at-war-image-swap[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/trump-end-canada-trade-us-cost-september-5-2026.html Canada/washington-talks-ottawa-stops-answering-september-5-2026.html Canada/assets/trump-hand-canada-september-5-2026.jpg Canada/assets/magaheads-canada-hockey-september-5-2026.jpg
+          git commit -m 'Canada: install hand and hockey art on Sept. 5 stories'
+          git push origin HEAD:main
+          echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Direct upload exact changed files
+        env:
+          NEOCITIES_API_KEY: ${{ secrets.NEOCITIES_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in Canada/index.html Canada/trump-end-canada-trade-us-cost-september-5-2026.html Canada/washington-talks-ottawa-stops-answering-september-5-2026.html Canada/assets/trump-hand-canada-september-5-2026.jpg Canada/assets/magaheads-canada-hockey-september-5-2026.jpg; do
+            test -s "$file"
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F "${file}=@${file}" https://neocities.org/api/upload
+          done
+
+      - name: Cache-busted public verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="${FINAL_SHA::8}"
+          check(){ u="$1"; marker="$2"; f="$(mktemp)"; ok=0; for i in 1 2 3 4 5 6 7 8; do c="$(curl -L -sS -o "$f" -w '%{http_code}' "${u}?v=${short}&verify=${i}" || true)"; [[ "$c" == 200 ]] && grep -Fq "$marker" "$f" && { ok=1; break; }; sleep 3; done; echo "verify $u http=$c marker=$marker"; rm -f "$f"; [[ "$ok" == 1 ]]; }
+          check 'https://brazilginga.neocities.org/Canada/' 'assets/trump-hand-canada-september-5-2026.jpg'
+          check 'https://brazilginga.neocities.org/Canada/' 'assets/magaheads-canada-hockey-september-5-2026.jpg'
+          check 'https://brazilginga.neocities.org/Canada/trump-end-canada-trade-us-cost-september-5-2026.html' 'assets/trump-hand-canada-september-5-2026.jpg'
+          check 'https://brazilginga.neocities.org/Canada/washington-talks-ottawa-stops-answering-september-5-2026.html' 'assets/magaheads-canada-hockey-september-5-2026.jpg'
