@@ -92,7 +92,6 @@ if not save_direct("main-street.jpg","https://www.therecordnews.ca/wp-content/up
 
 # Official people photography and Township branding.
 save_from_page("mayor-council.jpg","https://russell.ca/",["mayor and council"],"town-hall.jpg",allow_og=False)
-# Use the mayor's own Township message page because it exposes a real portrait with alt text "Mike Tarnowski".
 save_from_page("mayor-tarnowski-v2.jpg","https://www.russell.ca/en/news/message-from-the-mayor-industrial-park.aspx",["mike tarnowski"],"mayor-council.jpg",allow_og=False)
 save_from_page("rec-groundbreaking.jpg","https://russell.ca/news-and-notices/groundbreaking-ceremony-at-the-recreation-complex/",["group in front of construction site","construction site","groundbreaking"],"rec-complex.jpg",allow_og=False)
 # The water-restriction notices do not carry a useful water-tower photo. Per Rustler policy, use the official Township logo rather than generic art.
@@ -102,10 +101,7 @@ save_from_page("township-logo-v2.png","https://www.russell.ca/en/your-township/m
 save_from_page("notre-dame.jpg","https://russell.ca/fr/construction-et-developpement/projets-en-cours/projet-de-rehabilitation-de-la-rue-notre-dame/",["zone de construction","construction","fermeture","closure"],"town-hall.jpg",allow_og=False)
 save_from_page("autumn-photo-expo.jpg","https://russell.ca/culture-and-community/your-community/photography-club/photo-expo/",["poster","photo expo","exposition","recreational trail"],"town-hall.jpg",allow_og=False)
 save_from_page("trail.jpg","https://russell.ca/",["russell weir","trail","sentier"],"town-hall.jpg",allow_og=False)
-save_from_page("library-ai.jpg","https://russellbiblio.com/2026/08/18/practical-ai-skills-for-every-life/",["ai written","computer","laptop"],"town-hall.jpg",allow_og=False)
-# Correct library URL fallback if the first spelling changes or redirects.
-if not os.path.exists(os.path.join(OUT,"library-ai.jpg")) or os.path.getsize(os.path.join(OUT,"library-ai.jpg"))<1500:
-    save_from_page("library-ai.jpg","https://russellbiblio.com/2026/08/18/practical-ai-skills-for-everyday-life/",["ai written","computer","laptop"],"town-hall.jpg",allow_og=False)
+save_from_page("library-ai.jpg","https://russellbiblio.com/2026/08/18/practical-ai-skills-for-everyday-life/",["ai written","computer","laptop"],"town-hall.jpg",allow_og=False)
 save_from_page("eorn.jpg","https://eorn.ca/resources-for-residents/",["eorn_logo-subtext","eastern ontario regional network"],"town-hall.jpg",allow_og=False)
 save_from_page("ucpr.jpg","https://en.prescott-russell.on.ca/",["prescott","russell","counties","logo"],"town-hall.jpg",allow_og=False)
 save_from_page("eohu.jpg","https://eohu.ca/en/breastfeeding/more-formula-and-bottle-feeding-resources",["eastern ontario health unit","bureau de santé de l'est de l'ontario","bureau de sante de l'est de l'ontario"],"town-hall.jpg",allow_og=False)
