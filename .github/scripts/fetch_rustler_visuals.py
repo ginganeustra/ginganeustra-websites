@@ -90,10 +90,11 @@ if not save_direct("waste-collection.jpg","https://russell.ca/wp-content/uploads
 if not save_direct("main-street.jpg","https://www.therecordnews.ca/wp-content/uploads/2026/09/TT-Russell-funding-announcement-RGB.jpg"):
     copy_fallback("main-street.jpg","town-hall.jpg")
 
-# Official people photography and Township branding.
+# People photography and Township branding.
 save_from_page("mayor-council.jpg","https://russell.ca/",["mayor and council"],"town-hall.jpg",allow_og=False)
-# Use the verified Mayor-and-Council photograph for the election card rather than a stale portrait URL that was returning a broken image.
-copy_fallback("mayor-tarnowski-v2.jpg","mayor-council.jpg")
+# The mayor portrait comes from Mike Tarnowski's public campaign site. Fail rather than silently substituting a building image.
+if not save_direct("mayor-tarnowski-v2.jpg","https://static.wixstatic.com/media/861002_f48e365d74f147a88a2fa41732c39417~mv2.jpg"):
+    raise SystemExit("Could not fetch Mike Tarnowski portrait from miketarnowski.ca")
 save_from_page("rec-groundbreaking.jpg","https://russell.ca/news-and-notices/groundbreaking-ceremony-at-the-recreation-complex/",["group in front of construction site","construction site","groundbreaking"],"rec-complex.jpg",allow_og=False)
 # Official Russell Township logo, used when the source story has no usable photograph.
 if not save_direct("township-logo-v2.png","https://www.russell.ca/en/your-township/resources/Council/Township-Logo-Blue.png"):
