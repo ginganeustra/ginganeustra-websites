@@ -40,6 +40,16 @@ jobs:
           set -euo pipefail
           git fetch origin main
           git reset --hard origin/main
+          python3 -m pip install --disable-pip-version-check --quiet cairosvg
+          python3 - <<'PY'
+          import cairosvg
+          cairosvg.svg2png(
+              url='Canada/assets/canadian-wool-routes-september-5-2026.svg',
+              write_to='Canada/assets/canadian-wool-routes-september-5-2026.png',
+              output_width=1600,
+              output_height=900,
+          )
+          PY
           python3 - <<'PY'
           from pathlib import Path
           from datetime import datetime
@@ -49,11 +59,11 @@ jobs:
           C=Path('Canada')
           H=C/'index.html'
           slug='canadian-wool-reroutes-china-europe-september-5-2026.html'
-          art='assets/canadian-wool-routes-september-5-2026.svg'
+          art='assets/canadian-wool-routes-september-5-2026.png'
           old='trump-end-canada-trade-us-cost-september-5-2026.html'
           article=C/slug
           if not article.exists(): raise SystemExit(f'Missing article: {slug}')
-          if not (C/art).exists(): raise SystemExit(f'Missing art: {art}')
+          if not (C/art).exists(): raise SystemExit(f'Missing converted art: {art}')
           if not (C/old).exists(): raise SystemExit(f'Missing prior lead article: {old}')
 
           h=H.read_text(encoding='utf-8')
@@ -96,9 +106,10 @@ jobs:
           H.write_text(h,encoding='utf-8')
 
           a=article.read_text(encoding='utf-8')
+          a,n0=re.subn(r'assets/canadian-wool-routes-september-5-2026\.svg',art,a,count=1)
           a,n1=re.subn(r'<div class="top">PUBLISHED · .*?</div>',f'<div class="top">{published_band}</div>',a,count=1,flags=re.S)
           a,n2=re.subn(r'<p class="meta">Published Sept\. 5, 2026 · .*?</p>',f'<p class="meta">{display}</p>',a,count=1,flags=re.S)
-          if n1!=1 or n2!=1: raise SystemExit(f'Article timestamp patch failed: {n1}, {n2}')
+          if n0!=1 or n1!=1 or n2!=1: raise SystemExit(f'Article patch failed: art={n0}, band={n1}, meta={n2}')
           article.write_text(a,encoding='utf-8')
           PY
           python3 scripts/sync_canada_discovery.py canadian-wool-reroutes-china-europe-september-5-2026.html
@@ -112,7 +123,7 @@ jobs:
           set -euo pipefail
           git config user.name 'canada-at-war-finalizer[bot]'
           git config user.email 'canada-at-war-finalizer[bot]@users.noreply.github.com'
-          git add Canada/index.html Canada/canadian-wool-reroutes-china-europe-september-5-2026.html Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml
+          git add Canada/index.html Canada/canadian-wool-reroutes-china-europe-september-5-2026.html Canada/assets/canadian-wool-routes-september-5-2026.png Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml
           if git diff --cached --quiet; then
             echo 'No source delta to commit'
             echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
@@ -139,7 +150,7 @@ jobs:
           files=(
             Canada/index.html
             Canada/canadian-wool-reroutes-china-europe-september-5-2026.html
-            Canada/assets/canadian-wool-routes-september-5-2026.svg
+            Canada/assets/canadian-wool-routes-september-5-2026.png
             Canada/archive.html
             Canada/sitemap.xml
             sitemap.xml
@@ -158,15 +169,21 @@ jobs:
           check(){ u="$1"; m="$2"; f="$(mktemp)"; ok=0; c=000; for i in 1 2 3 4 5 6; do c="$(curl -L -sS -o "$f" -w '%{http_code}' "${u}?v=${short}&verify=${i}" || true)"; [[ "$c" == 200 ]] && grep -Fq "$m" "$f" && { ok=1; break; }; sleep 3; done; echo "verify $u http=$c marker=$m"; rm -f "$f"; [[ "$ok" == 1 ]]; }
           home='https://brazilginga.neocities.org/Canada/'
           article='https://brazilginga.neocities.org/Canada/canadian-wool-reroutes-china-europe-september-5-2026.html'
-          art='https://brazilginga.neocities.org/Canada/assets/canadian-wool-routes-september-5-2026.svg'
+          art='https://brazilginga.neocities.org/Canada/assets/canadian-wool-routes-september-5-2026.png'
           check "$home" 'CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA'
           check "$home" 'TRUMP SAYS AMERICA COULD STOP TRADING WITH CANADA. HERE’S WHAT AMERICA WOULD LOSE.'
           check "$article" 'CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA'
-          check "$art" 'CANADIAN WOOL TAKES THE LONG WAY AROUND'
           check 'https://brazilginga.neocities.org/Canada/archive.html' 'CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA'
           check 'https://brazilginga.neocities.org/Canada/sitemap.xml' 'canadian-wool-reroutes-china-europe-september-5-2026.html'
           check 'https://brazilginga.neocities.org/sitemap.xml' 'canadian-wool-reroutes-china-europe-september-5-2026.html'
           check 'https://brazilginga.neocities.org/news-sitemap.xml' 'canadian-wool-reroutes-china-europe-september-5-2026.html'
+          f="$(mktemp)"
+          c="$(curl -L -sS -o "$f" -w '%{http_code}' "${art}?v=${short}&verify=img" || true)"
+          [[ "$c" == 200 ]]
+          [[ "$(xxd -p -l 8 "$f")" == '89504e470d0a1a0a' ]]
+          [[ -s "$f" ]]
+          echo "verify $art http=$c png_signature=ok bytes=$(wc -c < "$f")"
+          rm -f "$f"
           f="$(mktemp)"
           curl -L -fsS "${home}?v=${short}&struct=1" -o "$f"
           for marker in 'CANADA_AT_WAR_MASTHEAD_LOCK' 'THE TICK' 'tradingview-widget-container' 'canada-at-war-goose-eagle-v3.jpg' 'petition-paint-mix' 'How Lying Works' 'id="must-read-library"'; do
