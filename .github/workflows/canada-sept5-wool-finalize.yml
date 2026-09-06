@@ -1,0 +1,183 @@
+name: Canada Sept. 5 wool lead final package
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-sept5-wool-finalize.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - name: Wait for older Neocities deploys
+        env: {GH_TOKEN: '${{ github.token }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=30"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active normal deploys: $active"
+            [[ "$active" == 0 ]] && break
+            sleep 5
+          done
+          json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+          [[ "$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")" == 0 ]]
+
+      - name: Patch complete Canada homepage and discovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          python3 - <<'PY'
+          from pathlib import Path
+          from datetime import datetime
+          from zoneinfo import ZoneInfo
+          import re
+
+          C=Path('Canada')
+          H=C/'index.html'
+          slug='canadian-wool-reroutes-china-europe-september-5-2026.html'
+          art='assets/canadian-wool-routes-september-5-2026.svg'
+          old='trump-end-canada-trade-us-cost-september-5-2026.html'
+          article=C/slug
+          if not article.exists(): raise SystemExit(f'Missing article: {slug}')
+          if not (C/art).exists(): raise SystemExit(f'Missing art: {art}')
+          if not (C/old).exists(): raise SystemExit(f'Missing prior lead article: {old}')
+
+          h=H.read_text(encoding='utf-8')
+          protected=['CANADA_AT_WAR_MASTHEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','How Lying Works','id="must-read-library"','CANADA_LEAD_BEGIN','CANADA_LEAD_END']
+          missing=[x for x in protected if x not in h]
+          if missing: raise SystemExit(f'Protected markers missing before edit: {missing}')
+          before=h.count('<article class="story')
+
+          now=datetime.now(ZoneInfo('America/Toronto'))
+          if now.date().isoformat()!='2026-09-05':
+              raise SystemExit(f'Unexpected Toronto date for Sept. 5 package: {now.isoformat()}')
+          band=now.strftime('UPDATED · %B %-d, %Y · %-I:%M %p ET').upper().replace(' AM ET',' A.M. ET').replace(' PM ET',' P.M. ET')
+          display=now.strftime('Published Sept. 5, 2026 · %-I:%M %p ET').replace('AM','a.m.').replace('PM','p.m.')
+          published_band=now.strftime('PUBLISHED · SEPTEMBER 5, 2026 · %-I:%M %p ET').replace('AM','A.M.').replace('PM','P.M.')
+
+          hero=f'''<!-- CANADA_LEAD_BEGIN -->
+          <section class="hero"><div class="hero-in"><div class="k">Canada–U.S. trade · Agriculture · Manufacturing · Diversification</div><h1>CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA</h1><img src="{art}" alt="Editorial illustration of red and white Canadian wool strands routing around the United States toward Europe and China" style="display:block;width:100%;max-width:900px;height:auto;margin:18px auto 26px"><p>A 50-per-cent U.S. tariff has made an old cross-border wool-processing route much harder to justify. Canadian producers are sending raw fibre to China and the Czech Republic instead — while the industry asks why more of the work cannot be done at home.</p><a class="read" href="{slug}">Read the report →</a><p class="meta">{display}</p></div></section>
+          <!-- CANADA_LEAD_END -->'''
+          h,n=re.subn(r'<!-- CANADA_LEAD_BEGIN -->.*?<!-- CANADA_LEAD_END -->',hero,h,count=1,flags=re.S)
+          if n!=1: raise SystemExit('Lead block replacement failed')
+
+          def rm_card(text,href):
+              return re.sub(r'<article\b[^>]*>(?:(?!</article>).)*?href="'+re.escape(href)+r'"(?:(?!</article>).)*?</article>\s*','',text,flags=re.S)
+          h=rm_card(h,slug)
+          h=rm_card(h,old)
+
+          oldcard=f'''<article class="story story-feature"><div><div class="k" style="color:#b51f2a">Analysis · Canada–U.S. trade · United States economy</div><h2>TRUMP SAYS AMERICA COULD STOP TRADING WITH CANADA. HERE’S WHAT AMERICA WOULD LOSE.</h2><p>No major study models the literal zero-trade threat Trump described Friday. Research on much smaller disruptions already shows the United States would damage its own factories, energy system, farms, exporters and household incomes.</p><a class="read" href="{old}">Read the analysis →</a></div><img src="assets/canada-at-war-goose-eagle-v3.jpg" alt="Editorial illustration of a Canadian goose and an American eagle"></article>'''
+          if '<main class="wrap">' not in h: raise SystemExit('Main feed anchor missing')
+          h=h.replace('<main class="wrap">','<main class="wrap">\n'+oldcard,1)
+          h=re.sub(r'<div class="top">UPDATED · .*?</div>',f'<div class="top">{band}</div>',h,count=1,flags=re.S)
+
+          missing=[x for x in protected if x not in h]
+          if missing: raise SystemExit(f'Protected markers missing after edit: {missing}')
+          if h.count(f'href="{slug}"')!=1: raise SystemExit(f'Wool homepage link count failed: {h.count(f"href=\"{slug}\"")}')
+          if h.count(f'href="{old}"')!=1: raise SystemExit(f'Prior lead homepage link count failed: {h.count(f"href=\"{old}\"")}')
+          if h.find('CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA') > h.find('TRUMP SAYS AMERICA COULD STOP TRADING WITH CANADA. HERE’S WHAT AMERICA WOULD LOSE.'):
+              raise SystemExit('Requested lead order failed')
+          if h.count('<article class="story') < before:
+              raise SystemExit(f'Unexpected story-card loss: before={before} after={h.count("<article class=\"story")}')
+          H.write_text(h,encoding='utf-8')
+
+          a=article.read_text(encoding='utf-8')
+          a,n1=re.subn(r'<div class="top">PUBLISHED · .*?</div>',f'<div class="top">{published_band}</div>',a,count=1,flags=re.S)
+          a,n2=re.subn(r'<p class="meta">Published Sept\. 5, 2026 · .*?</p>',f'<p class="meta">{display}</p>',a,count=1,flags=re.S)
+          if n1!=1 or n2!=1: raise SystemExit(f'Article timestamp patch failed: {n1}, {n2}')
+          article.write_text(a,encoding='utf-8')
+          PY
+          python3 scripts/sync_canada_discovery.py canadian-wool-reroutes-china-europe-september-5-2026.html
+          python3 scripts/sync_canada_discovery.py --from-homepage
+          python3 scripts/validate_canada_publish.py
+          python3 scripts/validate_canada_discovery.py
+
+      - name: Commit final source state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'canada-at-war-finalizer[bot]'
+          git config user.email 'canada-at-war-finalizer[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/canadian-wool-reroutes-china-europe-september-5-2026.html Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml
+          if git diff --cached --quiet; then
+            echo 'No source delta to commit'
+            echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          git commit -m 'Canada: promote wool diversification story to lead'
+          local_sha="$(git rev-parse HEAD)"
+          if ! git push origin HEAD:main; then
+            remote_sha="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+            if [[ "$remote_sha" != "$local_sha" ]]; then
+              echo "Push race: remote=${remote_sha} local=${local_sha}" >&2
+              exit 1
+            fi
+            echo 'Remote already contains exact final commit; continuing'
+          fi
+          echo "FINAL_SHA=${local_sha}" >> "$GITHUB_ENV"
+
+      - name: Direct upload final Canada package
+        env: {NEOCITIES_API_KEY: '${{ secrets.NEOCITIES_API_KEY }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]]
+          files=(
+            Canada/index.html
+            Canada/canadian-wool-reroutes-china-europe-september-5-2026.html
+            Canada/assets/canadian-wool-routes-september-5-2026.svg
+            Canada/archive.html
+            Canada/sitemap.xml
+            sitemap.xml
+            news-sitemap.xml
+          )
+          for file in "${files[@]}"; do
+            test -s "$file"
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F "${file}=@${file}" https://neocities.org/api/upload
+          done
+
+      - name: Final public verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="${FINAL_SHA::8}"
+          check(){ u="$1"; m="$2"; f="$(mktemp)"; ok=0; c=000; for i in 1 2 3 4 5 6; do c="$(curl -L -sS -o "$f" -w '%{http_code}' "${u}?v=${short}&verify=${i}" || true)"; [[ "$c" == 200 ]] && grep -Fq "$m" "$f" && { ok=1; break; }; sleep 3; done; echo "verify $u http=$c marker=$m"; rm -f "$f"; [[ "$ok" == 1 ]]; }
+          home='https://brazilginga.neocities.org/Canada/'
+          article='https://brazilginga.neocities.org/Canada/canadian-wool-reroutes-china-europe-september-5-2026.html'
+          art='https://brazilginga.neocities.org/Canada/assets/canadian-wool-routes-september-5-2026.svg'
+          check "$home" 'CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA'
+          check "$home" 'TRUMP SAYS AMERICA COULD STOP TRADING WITH CANADA. HERE’S WHAT AMERICA WOULD LOSE.'
+          check "$article" 'CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA'
+          check "$art" 'CANADIAN WOOL TAKES THE LONG WAY AROUND'
+          check 'https://brazilginga.neocities.org/Canada/archive.html' 'CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA'
+          check 'https://brazilginga.neocities.org/Canada/sitemap.xml' 'canadian-wool-reroutes-china-europe-september-5-2026.html'
+          check 'https://brazilginga.neocities.org/sitemap.xml' 'canadian-wool-reroutes-china-europe-september-5-2026.html'
+          check 'https://brazilginga.neocities.org/news-sitemap.xml' 'canadian-wool-reroutes-china-europe-september-5-2026.html'
+          f="$(mktemp)"
+          curl -L -fsS "${home}?v=${short}&struct=1" -o "$f"
+          for marker in 'CANADA_AT_WAR_MASTHEAD_LOCK' 'THE TICK' 'tradingview-widget-container' 'canada-at-war-goose-eagle-v3.jpg' 'petition-paint-mix' 'How Lying Works' 'id="must-read-library"'; do
+            grep -Fq "$marker" "$f" || { echo "missing public protected marker: $marker" >&2; exit 1; }
+          done
+          python3 - "$f" <<'PY'
+          import sys
+          s=open(sys.argv[1],encoding='utf-8').read()
+          a=s.find('CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA')
+          b=s.find('TRUMP SAYS AMERICA COULD STOP TRADING WITH CANADA. HERE’S WHAT AMERICA WOULD LOSE.')
+          if a<0 or b<0 or a>b: raise SystemExit(f'Public lead order failed: wool={a} old={b}')
+          PY
+          rm -f "$f"
+          echo "PUBLIC_VERIFY_OK final_sha=${FINAL_SHA}"
