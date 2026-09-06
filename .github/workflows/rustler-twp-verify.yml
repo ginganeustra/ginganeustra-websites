@@ -1,0 +1,51 @@
+name: Verify restored TWP pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Rustler/**'
+      - '.github/workflows/rustler-twp-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify restored TWP pages live
+        shell: bash
+        run: |
+          set -euo pipefail
+          home="$(mktemp)"
+          variance="$(mktemp)"
+          fire="$(mktemp)"
+          planning="$(mktemp)"
+          cleanup() { rm -f "$home" "$variance" "$fire" "$planning"; }
+          trap cleanup EXIT
+          for attempt in $(seq 1 20); do
+            hcode="$(curl -L -sS -o "$home" -w '%{http_code}' "https://therustler.neocities.org/?twpverify=${GITHUB_SHA::8}-${attempt}" || true)"
+            vcode="$(curl -L -sS -o "$variance" -w '%{http_code}' "https://therustler.neocities.org/minor-variance-15-day-notice-rejected-russell-2026.html?twpverify=${GITHUB_SHA::8}-${attempt}" || true)"
+            fcode="$(curl -L -sS -o "$fire" -w '%{http_code}' "https://therustler.neocities.org/fire-charge-140-replaces-100-russell-2026.html?twpverify=${GITHUB_SHA::8}-${attempt}" || true)"
+            pcode="$(curl -L -sS -o "$planning" -w '%{http_code}' "https://therustler.neocities.org/planning-notices-online-russell-2026.html?twpverify=${GITHUB_SHA::8}-${attempt}" || true)"
+            if [[ "$hcode" == "200" ]] && [[ "$vcode" == "200" ]] && [[ "$fcode" == "200" ]] && [[ "$pcode" == "200" ]] \
+              && grep -Fq 'Earlier TWP reports' "$home" \
+              && grep -Fq 'Council rejects 15-day notice rule for minor variances' "$home" \
+              && grep -Fq '$140 fire charge replaces old $100 fee' "$home" \
+              && grep -Fq 'Township to put more planning notices online' "$home" \
+              && grep -Fq 'Council rejects 15-day notice rule for minor variances' "$variance" \
+              && grep -Fq 'assets/town-hall.jpg' "$variance" \
+              && grep -Fq '$140 fire charge replaces old $100 fee' "$fire" \
+              && grep -Fq 'assets/town-hall.jpg' "$fire" \
+              && grep -Fq 'Township to put more planning notices online' "$planning" \
+              && grep -Fq 'assets/town-hall.jpg' "$planning"; then
+              echo 'Verified restored TWP homepage section and all three story pages live with HTTP 200 and expected markers.'
+              exit 0
+            fi
+            sleep 4
+          done
+          echo "Verification failed: home=$hcode variance=$vcode fire=$fcode planning=$pcode" >&2
+          exit 1
