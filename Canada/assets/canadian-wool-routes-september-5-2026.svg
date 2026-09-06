@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+<title id="title">Canadian wool routes around the United States to Europe and China</title>
+<desc id="desc">Editorial illustration showing red and white strands of Canadian wool leaving Canada, curling around the lower forty-eight United States, then continuing east to Europe and west to China.</desc>
+<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#edf3f8"/><stop offset="1" stop-color="#d5e1e9"/></linearGradient>
+  <linearGradient id="sea" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#bfd1dc"/><stop offset="1" stop-color="#8faab9"/></linearGradient>
+  <linearGradient id="land" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e8e2d5"/><stop offset="1" stop-color="#cfc6b7"/></linearGradient>
+  <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000" flood-opacity=".22"/></filter>
+  <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.4"/></filter>
+</defs>
+<rect width="1600" height="900" fill="url(#sky)"/>
+<path d="M0 425 C300 350 500 390 795 385 C1080 380 1280 310 1600 360 L1600 900 L0 900 Z" fill="url(#sea)"/>
+<!-- Canada -->
+<path d="M110 190 L190 155 265 165 322 140 386 165 465 145 550 184 616 160 690 185 760 170 832 210 816 245 748 256 700 292 638 278 575 310 510 290 458 330 390 314 330 340 270 318 210 342 160 310 116 280 80 236 Z" fill="#f7f1e7" stroke="#b51f2a" stroke-width="10" filter="url(#shadow)"/>
+<path d="M440 200 l18 32 34-7-20 26 22 22-34 2-9 34-15-30-34 10 18-28-24-20 34-5z" fill="#b51f2a"/>
+<text x="390" y="132" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="54" text-anchor="middle" fill="#171b24">CANADA</text>
+<!-- United States lower 48 -->
+<path d="M205 385 C255 350 328 340 390 355 L470 340 535 360 615 345 700 370 790 362 870 395 948 405 1025 432 996 465 920 478 848 510 760 510 690 540 602 526 520 552 438 530 350 535 295 500 244 482 216 442 Z" fill="url(#land)" stroke="#796f62" stroke-width="7" filter="url(#shadow)"/>
+<text x="600" y="455" font-family="Arial,Helvetica,sans-serif" font-weight="800" font-size="42" text-anchor="middle" fill="#6f665d">UNITED STATES</text>
+<text x="600" y="500" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="25" text-anchor="middle" fill="#7a7167">50% tariff barrier</text>
+<!-- Europe -->
+<path d="M1160 250 l78-34 72 12 58 42-20 62-66 34-62-12-58-48z" fill="#eee7d9" stroke="#776f64" stroke-width="6"/>
+<circle cx="1268" cy="300" r="10" fill="#b51f2a"/>
+<text x="1266" y="195" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="40" text-anchor="middle" fill="#171b24">EUROPE</text>
+<text x="1268" y="398" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="24" text-anchor="middle" fill="#171b24">Czech Republic</text>
+<!-- China -->
+<path d="M1284 590 l100-34 88 18 45 62-34 66-86 28-90-36-48-58z" fill="#eee7d9" stroke="#776f64" stroke-width="6"/>
+<circle cx="1390" cy="640" r="10" fill="#b51f2a"/>
+<text x="1400" y="540" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="42" text-anchor="middle" fill="#171b24">CHINA</text>
+<!-- yarn balls -->
+<g filter="url(#shadow)">
+  <circle cx="180" cy="255" r="72" fill="#b51f2a"/>
+  <path d="M118 260 C150 220 190 210 240 240 M120 285 C162 245 205 245 244 276 M145 208 C170 250 205 280 238 301" fill="none" stroke="#f6efe4" stroke-width="10" opacity=".95"/>
+  <circle cx="286" cy="236" r="60" fill="#f7f1e7" stroke="#b51f2a" stroke-width="6"/>
+  <path d="M235 240 C260 206 305 205 337 232 M238 264 C275 235 313 240 339 265 M258 188 C266 225 296 262 326 280" fill="none" stroke="#b51f2a" stroke-width="9" opacity=".92"/>
+</g>
+<!-- routing yarn, double strand -->
+<path d="M240 305 C330 360 330 590 475 646 C645 714 866 678 980 610 C1090 546 1070 372 1185 310" fill="none" stroke="#fff" stroke-width="34" stroke-linecap="round" filter="url(#shadow)"/>
+<path d="M220 320 C310 390 290 630 458 705 C670 798 936 720 1060 645 C1180 573 1190 650 1350 644" fill="none" stroke="#b51f2a" stroke-width="34" stroke-linecap="round" filter="url(#shadow)"/>
+<path d="M240 305 C330 360 330 590 475 646 C645 714 866 678 980 610 C1090 546 1070 372 1185 310" fill="none" stroke="#d7d1c7" stroke-width="3" stroke-linecap="round" opacity=".75"/>
+<path d="M220 320 C310 390 290 630 458 705 C670 798 936 720 1060 645 C1180 573 1190 650 1350 644" fill="none" stroke="#7f1019" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+<!-- arrows -->
+<polygon points="1164,288 1210,305 1171,334" fill="#fff"/>
+<polygon points="1333,620 1382,643 1334,671" fill="#b51f2a"/>
+<!-- headline strip -->
+<rect x="0" y="760" width="1600" height="140" fill="#171b24" opacity=".96"/>
+<text x="800" y="822" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="52" text-anchor="middle" fill="#fff">CANADIAN WOOL TAKES THE LONG WAY AROUND</text>
+<text x="800" y="868" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="27" text-anchor="middle" fill="#d7ad55">Tariffs push processing and supply chains toward Europe and China</text>
+</svg>
