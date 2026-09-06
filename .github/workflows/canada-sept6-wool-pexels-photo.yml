@@ -1,0 +1,161 @@
+name: Canada Sept. 6 wool Pexels photo correction
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/canada-sept6-wool-pexels-photo.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+
+      - name: Wait for older Neocities deploys
+        env: {GH_TOKEN: '${{ github.token }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&per_page=30"
+          for attempt in $(seq 1 120); do
+            json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+            active="$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")"
+            echo "active normal deploys: $active"
+            [[ "$active" == 0 ]] && break
+            sleep 5
+          done
+          json="$(curl -fsSL -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "$api")"
+          [[ "$(jq '[.workflow_runs[] | select(.status=="queued" or .status=="in_progress")] | length' <<<"$json")" == 0 ]]
+
+      - name: Download Pexels photo and surgically swap wool lead art
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git reset --hard origin/main
+          art='Canada/assets/canadian-wool-sheep-pexels-september-6-2026.jpg'
+          curl --fail-with-body --show-error --location --retry 3 --retry-all-errors \
+            -A 'Mozilla/5.0' \
+            'https://images.pexels.com/photos/12426081/pexels-photo-12426081.jpeg?auto=compress&cs=tinysrgb&w=1600' \
+            -o "$art"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('Canada/assets/canadian-wool-sheep-pexels-september-6-2026.jpg')
+          b=p.read_bytes()
+          if len(b) < 10000 or not b.startswith(b'\xff\xd8') or not b.endswith(b'\xff\xd9'):
+              raise SystemExit(f'Pexels JPEG download invalid: bytes={len(b)}')
+          print(f'Pexels JPEG downloaded: {len(b)} bytes')
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          C=Path('Canada')
+          H=C/'index.html'
+          article=C/'canadian-wool-reroutes-china-europe-september-5-2026.html'
+          old_art='assets/canadian-wool-routes-september-5-2026.png'
+          new_art='assets/canadian-wool-sheep-pexels-september-6-2026.jpg'
+          pexels='https://www.pexels.com/photo/herd-of-sheep-on-green-grass-field-12426081/'
+          credit='coco HACHE / Pexels'
+
+          h=H.read_text(encoding='utf-8')
+          protected=['CANADA_AT_WAR_MASTHEAD_LOCK','PINNED_LEAD_LOCK','THE TICK','tradingview-widget-container','canada-at-war-goose-eagle-v3.jpg','petition-paint-mix','How Lying Works','id="must-read-library"','CANADA_LEAD_BEGIN','CANADA_LEAD_END']
+          missing=[x for x in protected if x not in h]
+          if missing: raise SystemExit(f'Protected markers missing before edit: {missing}')
+          before_cards=h.count('<article class="story')
+          m=re.search(r'<!-- CANADA_LEAD_BEGIN -->(.*?)<!-- CANADA_LEAD_END -->',h,re.S)
+          if not m: raise SystemExit('Protected lead block missing')
+          lead=m.group(1)
+          if 'CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA' not in lead: raise SystemExit('Wool story is no longer the lead; refusing unrelated change')
+          if old_art not in lead: raise SystemExit('Expected old wool art not present in lead')
+          img_re=r'<img\b[^>]*\bsrc="'+re.escape(old_art)+r'"[^>]*>'
+          new_img=f'<img src="{new_art}" alt="A flock of sheep standing in a misty green pasture" style="display:block;width:100%;max-width:900px;aspect-ratio:16/9;object-fit:cover;object-position:center 54%;margin:18px auto 7px">'
+          lead,n=re.subn(img_re,new_img,lead,count=1,flags=re.S)
+          if n!=1: raise SystemExit(f'Homepage lead image replacement failed: {n}')
+          lead += f'<small style="display:block;max-width:900px;margin:0 auto 18px;color:#aeb5bf;font:11px/1.35 Arial">Photo: <a href="{pexels}" style="color:#fff">{credit}</a>.</small>'
+          h=h[:m.start(1)]+lead+h[m.end(1):]
+          if old_art in re.search(r'<!-- CANADA_LEAD_BEGIN -->(.*?)<!-- CANADA_LEAD_END -->',h,re.S).group(1):
+              raise SystemExit('Old wool art still present in homepage lead')
+          if h.count('<article class="story') != before_cards: raise SystemExit('Unexpected homepage story-card count change')
+          missing=[x for x in protected if x not in h]
+          if missing: raise SystemExit(f'Protected markers missing after edit: {missing}')
+          H.write_text(h,encoding='utf-8')
+
+          a=article.read_text(encoding='utf-8')
+          fig_re=r'<figure><img class="lead-art" src="'+re.escape(old_art)+r'"[^>]*><figcaption>.*?</figcaption></figure>'
+          fig=(f'<figure><img class="lead-art" src="{new_art}" alt="A flock of sheep standing in a misty green pasture" '
+               f'style="aspect-ratio:16/9;object-fit:cover;object-position:center 54%"><figcaption>Sheep in a misty green pasture. '
+               f'Photo: <a href="{pexels}">{credit}</a>.</figcaption></figure>')
+          a,n=re.subn(fig_re,fig,a,count=1,flags=re.S)
+          if n!=1: raise SystemExit(f'Article figure replacement failed: {n}')
+          if old_art in a: raise SystemExit('Old wool art still present in article')
+          article.write_text(a,encoding='utf-8')
+          PY
+          python3 scripts/sync_canada_discovery.py canadian-wool-reroutes-china-europe-september-5-2026.html
+          python3 scripts/sync_canada_discovery.py --from-homepage
+          python3 scripts/validate_canada_publish.py
+          python3 scripts/validate_canada_discovery.py
+
+      - name: Commit corrected source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'canada-at-war-finalizer[bot]'
+          git config user.email 'canada-at-war-finalizer[bot]@users.noreply.github.com'
+          git add Canada/index.html Canada/canadian-wool-reroutes-china-europe-september-5-2026.html Canada/assets/canadian-wool-sheep-pexels-september-6-2026.jpg Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml
+          if git diff --cached --quiet; then
+            echo "FINAL_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          git commit -m 'Canada: replace wool lead art with credited Pexels sheep photo'
+          local_sha="$(git rev-parse HEAD)"
+          git push origin HEAD:main
+          echo "FINAL_SHA=${local_sha}" >> "$GITHUB_ENV"
+
+      - name: Direct upload corrected Canada package
+        env: {NEOCITIES_API_KEY: '${{ secrets.NEOCITIES_API_KEY }}'}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${NEOCITIES_API_KEY:-}" ]]
+          files=(Canada/index.html Canada/canadian-wool-reroutes-china-europe-september-5-2026.html Canada/assets/canadian-wool-sheep-pexels-september-6-2026.jpg Canada/archive.html Canada/sitemap.xml sitemap.xml news-sitemap.xml)
+          for file in "${files[@]}"; do
+            test -s "$file"
+            curl --fail-with-body --show-error --retry 3 --retry-all-errors -H "Authorization: Bearer $NEOCITIES_API_KEY" -F "${file}=@${file}" https://neocities.org/api/upload
+          done
+
+      - name: Final public verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          short="${FINAL_SHA::8}"
+          home='https://brazilginga.neocities.org/Canada/'
+          article='https://brazilginga.neocities.org/Canada/canadian-wool-reroutes-china-europe-september-5-2026.html'
+          art='https://brazilginga.neocities.org/Canada/assets/canadian-wool-sheep-pexels-september-6-2026.jpg'
+          check(){ u="$1"; m="$2"; f="$(mktemp)"; ok=0; c=000; for i in 1 2 3 4 5 6; do c="$(curl -L -sS -o "$f" -w '%{http_code}' "${u}?v=${short}&verify=${i}" || true)"; [[ "$c" == 200 ]] && grep -Fq "$m" "$f" && { ok=1; break; }; sleep 3; done; echo "verify $u http=$c marker=$m"; rm -f "$f"; [[ "$ok" == 1 ]]; }
+          check "$home" 'CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA'
+          check "$home" 'canadian-wool-sheep-pexels-september-6-2026.jpg'
+          check "$home" 'coco HACHE / Pexels'
+          check "$article" 'canadian-wool-sheep-pexels-september-6-2026.jpg'
+          check "$article" 'coco HACHE / Pexels'
+          check 'https://brazilginga.neocities.org/Canada/archive.html' 'CANADIAN WOOL TAKES THE LONG WAY AROUND AMERICA'
+          check 'https://brazilginga.neocities.org/Canada/sitemap.xml' 'canadian-wool-reroutes-china-europe-september-5-2026.html'
+          f="$(mktemp)"
+          c="$(curl -L -sS -o "$f" -w '%{http_code}' "${art}?v=${short}&verify=img" || true)"
+          [[ "$c" == 200 ]]
+          [[ "$(xxd -p -l 2 "$f")" == 'ffd8' ]]
+          [[ -s "$f" ]]
+          echo "verify $art http=$c jpeg_signature=ok bytes=$(wc -c < "$f")"
+          rm -f "$f"
+          f="$(mktemp)"
+          curl -L -fsS "${home}?v=${short}&struct=1" -o "$f"
+          for marker in 'CANADA_AT_WAR_MASTHEAD_LOCK' 'THE TICK' 'tradingview-widget-container' 'canada-at-war-goose-eagle-v3.jpg' 'petition-paint-mix' 'How Lying Works' 'id="must-read-library"'; do grep -Fq "$marker" "$f" || exit 1; done
+          ! grep -Fq 'assets/canadian-wool-routes-september-5-2026.png' "$f"
+          echo "PUBLIC_VERIFY_OK final_sha=${FINAL_SHA}"
