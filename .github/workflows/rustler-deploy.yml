@@ -50,7 +50,16 @@ jobs:
           set -euo pipefail
           grep -Fq 'Council puts brakes on another full Notre-Dame shutdown' Rustler/index.html
           grep -Fq 'In the TWP' Rustler/index.html
-          grep -Fq 'Light rain' Rustler/index.html
+          grep -Fq 'weather-strip' Rustler/index.html
+          grep -Fq 'High / Low' Rustler/index.html
+          grep -Fq 'Sunday edition · September 6, 2026' Rustler/index.html
+          grep -Fq 'Tarnowski presses UCPR over another delay at new Residence' Rustler/index.html
+          grep -Fq 'Panthers split first two exhibition games' Rustler/index.html
+          grep -Fq 'Catch the Ace jackpot estimated at $315,000' Rustler/index.html
+          grep -Fq 'Bouquet workshop at Russell Legion today' Rustler/index.html
+          grep -Fq 'Rep B rust-off sessions continue Monday' Rustler/index.html
+          grep -Fq 'Busy week ahead at Town Hall' Rustler/index.html
+          ! grep -Fq 'Nick Gallagher' Rustler/index.html
           grep -Fq 'photo-grid' Rustler/index.html
           grep -Fq 'site.css?v=6' Rustler/index.html
           grep -Fq 'mayor-tarnowski-v2.jpg' Rustler/index.html
@@ -68,12 +77,15 @@ jobs:
           ! grep -Fq 'assets/autumn-photo-expo.jpg' Rustler/index.html
           grep -Fq 'assets/autumn-maple-leaf-water.jpg' Rustler/autumn-in-the-country-2000-russell-grant-2026.html
           ! grep -Fq 'assets/autumn-photo-expo.jpg' Rustler/autumn-in-the-country-2000-russell-grant-2026.html
+          grep -Fq 'nurse-call system' Rustler/prescott-russell-residence-delay-nurse-call-september-2026.html
+          grep -Fq 'assets/mayor-tarnowski-v2.jpg' Rustler/prescott-russell-residence-delay-nurse-call-september-2026.html
           grep -Fq 'Mobile story-image compaction v5' Rustler/site.css
           test -s Rustler/assets/notre-dame.jpg
           test -s Rustler/assets/rec-complex.jpg
           test -s Rustler/assets/main-street.jpg
           test -s Rustler/assets/mayor-tarnowski-v2.jpg
           test -s Rustler/assets/town-hall.jpg
+          ! cmp -s Rustler/assets/mayor-tarnowski-v2.jpg Rustler/assets/town-hall.jpg
           test -s Rustler/assets/ucpr.jpg
           test -s Rustler/assets/eohu.jpg
           test -s Rustler/assets/autumn-maple-leaf-water.jpg
@@ -99,30 +111,34 @@ jobs:
         run: |
           set -euo pipefail
           tmp="$(mktemp)"
+          residence="$(mktemp)"
           water="$(mktemp)"
           css="$(mktemp)"
           hall="$(mktemp)"
+          mayor="$(mktemp)"
           autumn="$(mktemp)"
           maple="$(mktemp)"
           terry="$(mktemp)"
           eorn="$(mktemp)"
           for attempt in 1 2 3 4 5 6; do
             code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "https://therustler.neocities.org/?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            rcode="$(curl -L -sS -o "$residence" -w '%{http_code}' "https://therustler.neocities.org/prescott-russell-residence-delay-nurse-call-september-2026.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             wcode="$(curl -L -sS -o "$water" -w '%{http_code}' "https://therustler.neocities.org/embrun-water-tower-delay-september-2026.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             ccode="$(curl -L -sS -o "$css" -w '%{http_code}' "https://therustler.neocities.org/site.css?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             hcode="$(curl -L -sS -o "$hall" -w '%{http_code}' "https://therustler.neocities.org/assets/town-hall.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            pcode="$(curl -L -sS -o "$mayor" -w '%{http_code}' "https://therustler.neocities.org/assets/mayor-tarnowski-v2.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             acode="$(curl -L -sS -o "$autumn" -w '%{http_code}' "https://therustler.neocities.org/autumn-in-the-country-2000-russell-grant-2026.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             mcode="$(curl -L -sS -o "$maple" -w '%{http_code}' "https://therustler.neocities.org/assets/autumn-maple-leaf-water.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             tcode="$(curl -L -sS -o "$terry" -w '%{http_code}' "https://therustler.neocities.org/assets/terry-fox.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             ecode="$(curl -L -sS -o "$eorn" -w '%{http_code}' "https://therustler.neocities.org/assets/eorn-logo.png?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            if [[ "$code" == "200" ]] && [[ "$wcode" == "200" ]] && [[ "$ccode" == "200" ]] && [[ "$hcode" == "200" ]] && [[ "$acode" == "200" ]] && [[ "$mcode" == "200" ]] && [[ "$tcode" == "200" ]] && [[ "$ecode" == "200" ]] && grep -Fq 'Treasurer Sébastien Dagenais' "$tmp" && grep -Fq 'infrastructure executive Jonathan Bourgon' "$tmp" && grep -Fq 'site.css?v=6' "$tmp" && grep -Fq 'assets/autumn-maple-leaf-water.jpg' "$tmp" && grep -Fq 'assets/terry-fox.jpg' "$tmp" && grep -Fq 'assets/eorn-logo.png' "$tmp" && ! grep -Fq 'assets/autumn-photo-expo.jpg' "$tmp" && grep -Fq 'Russell Township file photo' "$tmp" && ! grep -Fq 'township-logo-v2.png' "$tmp" && grep -Fq 'Jonathan Bourgon' "$water" && grep -Fq 'assets/town-hall.jpg' "$water" && ! grep -Fq 'township-logo-v2.png' "$water" && grep -Fq 'assets/autumn-maple-leaf-water.jpg' "$autumn" && ! grep -Fq 'assets/autumn-photo-expo.jpg' "$autumn" && grep -Fq 'Mobile story-image compaction v5' "$css" && grep -Fq 'Rustler visual source corrections v6' "$css" && [[ -s "$hall" ]] && [[ -s "$maple" ]] && [[ -s "$terry" ]] && [[ -s "$eorn" ]]; then
-              echo 'Verified The Rustler visual replacements live'
-              rm -f "$tmp" "$water" "$css" "$hall" "$autumn" "$maple" "$terry" "$eorn"
+            if [[ "$code" == "200" ]] && [[ "$rcode" == "200" ]] && [[ "$wcode" == "200" ]] && [[ "$ccode" == "200" ]] && [[ "$hcode" == "200" ]] && [[ "$pcode" == "200" ]] && [[ "$acode" == "200" ]] && [[ "$mcode" == "200" ]] && [[ "$tcode" == "200" ]] && [[ "$ecode" == "200" ]] && grep -Fq 'Tarnowski presses UCPR over another delay at new Residence' "$tmp" && grep -Fq 'Panthers split first two exhibition games' "$tmp" && grep -Fq 'Catch the Ace jackpot estimated at $315,000' "$tmp" && grep -Fq 'Bouquet workshop at Russell Legion today' "$tmp" && grep -Fq 'Rep B rust-off sessions continue Monday' "$tmp" && grep -Fq 'Busy week ahead at Town Hall' "$tmp" && grep -Fq 'weather-strip' "$tmp" && grep -Fq 'High / Low' "$tmp" && ! grep -Fq 'Nick Gallagher' "$tmp" && grep -Fq 'Treasurer Sébastien Dagenais' "$tmp" && grep -Fq 'infrastructure executive Jonathan Bourgon' "$tmp" && grep -Fq 'site.css?v=6' "$tmp" && grep -Fq 'assets/autumn-maple-leaf-water.jpg' "$tmp" && grep -Fq 'assets/terry-fox.jpg' "$tmp" && grep -Fq 'assets/eorn-logo.png' "$tmp" && ! grep -Fq 'assets/autumn-photo-expo.jpg' "$tmp" && grep -Fq 'Russell Township file photo' "$tmp" && ! grep -Fq 'township-logo-v2.png' "$tmp" && grep -Fq 'Tarnowski presses UCPR over another delay at new Residence' "$residence" && grep -Fq 'nurse-call system' "$residence" && grep -Fq 'assets/mayor-tarnowski-v2.jpg' "$residence" && grep -Fq 'Jonathan Bourgon' "$water" && grep -Fq 'assets/town-hall.jpg' "$water" && ! grep -Fq 'township-logo-v2.png' "$water" && grep -Fq 'assets/autumn-maple-leaf-water.jpg' "$autumn" && ! grep -Fq 'assets/autumn-photo-expo.jpg' "$autumn" && grep -Fq 'Mobile story-image compaction v5' "$css" && grep -Fq 'Rustler visual source corrections v6' "$css" && [[ -s "$hall" ]] && [[ -s "$mayor" ]] && ! cmp -s "$hall" "$mayor" && [[ -s "$maple" ]] && [[ -s "$terry" ]] && [[ -s "$eorn" ]]; then
+              echo 'Verified Sept. 6 Rustler edition, Residence story, TWP briefs, current weather structure and mayor portrait live'
+              rm -f "$tmp" "$residence" "$water" "$css" "$hall" "$mayor" "$autumn" "$maple" "$terry" "$eorn"
               exit 0
             fi
             sleep 4
           done
           echo 'Homepage verification body:'
           cat "$tmp" || true
-          rm -f "$tmp" "$water" "$css" "$hall" "$autumn" "$maple" "$terry" "$eorn"
+          rm -f "$tmp" "$residence" "$water" "$css" "$hall" "$mayor" "$autumn" "$maple" "$terry" "$eorn"
           exit 1
