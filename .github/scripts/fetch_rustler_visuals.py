@@ -108,8 +108,9 @@ if not save_direct("terry-fox.jpg","https://upload.wikimedia.org/wikipedia/commo
     raise SystemExit("Could not fetch public-domain Terry Fox photograph")
 save_from_page("trail.jpg","https://russell.ca/",["russell weir","trail","sentier"],"town-hall.jpg",allow_og=False)
 save_from_page("library-ai.jpg","https://russellbiblio.com/2026/08/18/practical-ai-skills-for-everyday-life/",["ai written","computer","laptop"],"town-hall.jpg",allow_og=False)
-if not save_direct("eorn-logo.png","https://eorn.ca/wp-content/uploads/2026/01/eorn_logo-subtext_rgb-rev_800px-1-320x115.png"):
-    raise SystemExit("Could not fetch official EORN logo")
+# The official EORN logo is a vetted, checked-in asset. EORN’s CMS blocks this action runner’s direct requests.
+if not os.path.exists(os.path.join(OUT, "eorn-logo.png")):
+    raise SystemExit("Bundled official EORN logo is missing")
 save_from_page("ucpr.jpg","https://en.prescott-russell.on.ca/",["prescott","russell","counties","logo"],"town-hall.jpg",allow_og=False)
 save_from_page("eohu.jpg","https://eohu.ca/en/breastfeeding/more-formula-and-bottle-feeding-resources",["eastern ontario health unit","bureau de santé de l'est de l'ontario","bureau de sante de l'est de l'ontario"],"town-hall.jpg",allow_og=False)
 
