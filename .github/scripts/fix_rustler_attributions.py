@@ -97,6 +97,11 @@ for page in ROOT.glob("*.html"):
 append_once("site.css", "Mobile story-image compaction v5", r'''/* Mobile story-image compaction v5 */
 @media(max-width:570px){
   .photo-card img:not([src$="ucpr.jpg"]):not([src$="eohu.jpg"]):not([src$="township-logo-v2.png"]){aspect-ratio:16/9;object-fit:cover}
-  .photo-card img[src$="autumn-photo-expo.jpg"]{object-position:50% 58%}
+  .photo-card img[src$="autumn-maple-leaf-water.jpg"]{object-position:50% 45%}
   .article-visual img:not([src$="ucpr.jpg"]):not([src$="eohu.jpg"]):not([src$="township-logo-v2.png"]){max-height:360px;object-fit:cover}
 }''')
+append_once("site.css", "Rustler visual source corrections v6", r'''/* Rustler visual source corrections v6 */
+.photo-card img[src$="autumn-maple-leaf-water.jpg"],.article-visual img[src$="autumn-maple-leaf-water.jpg"]{object-position:50% 45%}
+.brief-tile img[src$="terry-fox.jpg"]{object-position:50% 24%}
+.brief-tile img[src$="eorn-logo.png"]{aspect-ratio:16/7;object-fit:contain;padding:18px 20px;background:#f3efe5}
+@media(max-width:570px){.brief-tile img[src$="eorn-logo.png"]{aspect-ratio:16/6;padding:15px 18px}}''')

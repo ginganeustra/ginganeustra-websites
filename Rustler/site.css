@@ -4,3 +4,8 @@
 .photo-card img[src$="ucpr.jpg"],.photo-card img[src$="eohu.jpg"],.photo-card img[src$="township-logo-v2.png"]{aspect-ratio:16/7;object-fit:contain;padding:20px 28px;background:#f3efe5}
 .article-visual img[src$="ucpr.jpg"],.article-visual img[src$="eohu.jpg"],.article-visual img[src$="township-logo-v2.png"]{max-height:300px;object-fit:contain;padding:30px;background:#f3efe5}
 @media(max-width:570px){.photo-card img[src$="ucpr.jpg"],.photo-card img[src$="eohu.jpg"],.photo-card img[src$="township-logo-v2.png"]{aspect-ratio:16/6;padding:16px 22px}.article-visual img[src$="ucpr.jpg"],.article-visual img[src$="eohu.jpg"],.article-visual img[src$="township-logo-v2.png"]{max-height:220px;padding:22px}}
+/* Rustler visual source corrections v6 */
+.photo-card img[src$="autumn-maple-leaf-water.jpg"],.article-visual img[src$="autumn-maple-leaf-water.jpg"]{object-position:50% 45%}
+.brief-tile img[src$="terry-fox.jpg"]{object-position:50% 24%}
+.brief-tile img[src$="eorn-logo.png"]{aspect-ratio:16/7;object-fit:contain;padding:18px 20px;background:#f3efe5}
+@media(max-width:570px){.brief-tile img[src$="eorn-logo.png"]{aspect-ratio:16/6;padding:15px 18px}}

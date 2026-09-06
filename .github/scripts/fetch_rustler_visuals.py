@@ -101,13 +101,18 @@ if not save_direct("township-logo-v2.png","https://www.russell.ca/en/your-townsh
 
 # Current official/civic pages.
 save_from_page("notre-dame.jpg","https://russell.ca/fr/construction-et-developpement/projets-en-cours/projet-de-rehabilitation-de-la-rue-notre-dame/",["zone de construction","construction","fermeture","closure"],"town-hall.jpg",allow_og=False)
-save_from_page("autumn-photo-expo.jpg","https://russell.ca/culture-and-community/your-community/photography-club/photo-expo/",["poster","photo expo","exposition","recreational trail"],"town-hall.jpg",allow_og=False)
+# Verified editorial visuals for the current Rustler edition.
+if not save_direct("autumn-maple-leaf-water.jpg","https://images.pexels.com/photos/29237867/pexels-photo-29237867.jpeg?cs=srgb&dl=pexels-aj4xo-29237867.jpg&fm=jpg"):
+    raise SystemExit("Could not fetch Pexels maple-leaf photograph")
+if not save_direct("terry-fox.jpg","https://upload.wikimedia.org/wikipedia/commons/2/2c/TerryFoxToronto19800712.JPG"):
+    raise SystemExit("Could not fetch public-domain Terry Fox photograph")
 save_from_page("trail.jpg","https://russell.ca/",["russell weir","trail","sentier"],"town-hall.jpg",allow_og=False)
 save_from_page("library-ai.jpg","https://russellbiblio.com/2026/08/18/practical-ai-skills-for-everyday-life/",["ai written","computer","laptop"],"town-hall.jpg",allow_og=False)
-save_from_page("eorn.jpg","https://eorn.ca/resources-for-residents/",["eorn_logo-subtext","eastern ontario regional network"],"town-hall.jpg",allow_og=False)
+if not save_direct("eorn-logo.png","https://eorn.ca/wp-content/uploads/2026/01/eorn_logo-subtext_rgb-rev_800px-1-320x115.png"):
+    raise SystemExit("Could not fetch official EORN logo")
 save_from_page("ucpr.jpg","https://en.prescott-russell.on.ca/",["prescott","russell","counties","logo"],"town-hall.jpg",allow_og=False)
 save_from_page("eohu.jpg","https://eohu.ca/en/breastfeeding/more-formula-and-bottle-feeding-resources",["eastern ontario health unit","bureau de santé de l'est de l'ontario","bureau de sante de l'est de l'ontario"],"town-hall.jpg",allow_og=False)
 
-required=["rec-complex.jpg","town-hall.jpg","waste-collection.jpg","main-street.jpg","mayor-council.jpg","mayor-tarnowski-v2.jpg","rec-groundbreaking.jpg","township-logo-v2.png","notre-dame.jpg","autumn-photo-expo.jpg","trail.jpg","library-ai.jpg","eorn.jpg","ucpr.jpg","eohu.jpg"]
+required=["rec-complex.jpg","town-hall.jpg","waste-collection.jpg","main-street.jpg","mayor-council.jpg","mayor-tarnowski-v2.jpg","rec-groundbreaking.jpg","township-logo-v2.png","notre-dame.jpg","autumn-maple-leaf-water.jpg","terry-fox.jpg","trail.jpg","library-ai.jpg","eorn-logo.png","ucpr.jpg","eohu.jpg"]
 missing=[x for x in required if not os.path.exists(os.path.join(OUT,x)) or os.path.getsize(os.path.join(OUT,x))<1500]
 if missing: raise SystemExit("Missing Rustler visual assets: "+", ".join(missing))
