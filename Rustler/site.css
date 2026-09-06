@@ -9,3 +9,8 @@
 .brief-tile img[src$="terry-fox.jpg"]{object-position:50% 24%}
 .brief-tile img[src$="eorn-logo.png"]{aspect-ratio:16/7;object-fit:contain;padding:18px 20px;background:#f3efe5}
 @media(max-width:570px){.brief-tile img[src$="eorn-logo.png"]{aspect-ratio:16/6;padding:15px 18px}}
+/* Election 2026 card replacement */
+#region .photo-grid>.photo-card:nth-child(3) figure>a[href="russell-election-tarnowski-acclaimed-council-candidates-2026.html"]{display:block;background:url("assets/election-2026-russell.webp") center/cover no-repeat}
+#region .photo-grid>.photo-card:nth-child(3) figure>a[href="russell-election-tarnowski-acclaimed-council-candidates-2026.html"]>img{opacity:0;aspect-ratio:16/9}
+#region .photo-grid>.photo-card:nth-child(3) .photo-credit{font-size:0}
+#region .photo-grid>.photo-card:nth-child(3) .photo-credit::after{content:"Election 2026 graphic";font-size:.62rem;line-height:1.25;color:#81776b}
