@@ -50,7 +50,8 @@ jobs:
           set -euo pipefail
           grep -Fq 'Council puts brakes on another full Notre-Dame shutdown' Rustler/index.html
           grep -Fq 'In the TWP' Rustler/index.html
-          grep -Fq 'weather-strip' Rustler/index.html
+          grep -Fq 'reader-actions' Rustler/index.html
+          ! grep -Fq 'weather-strip' Rustler/index.html
           grep -Fq 'High / Low' Rustler/index.html
           grep -Fq 'Sunday edition · September 6, 2026' Rustler/index.html
           grep -Fq 'Tarnowski presses UCPR over another delay at new Residence' Rustler/index.html
@@ -61,7 +62,11 @@ jobs:
           grep -Fq 'Busy week ahead at Town Hall' Rustler/index.html
           ! grep -Fq 'Nick Gallagher' Rustler/index.html
           grep -Fq 'photo-grid' Rustler/index.html
-          grep -Fq 'site.css?v=7' Rustler/index.html
+          grep -Fq 'site.css?v=8' Rustler/index.html
+          grep -Fq 'formsubmit.co/dadabuddanews@gmail.com' Rustler/community.html
+          grep -Fq 'formsubmit.co/dadabuddanews@gmail.com' Rustler/advertise.html
+          grep -Fq 'Your submission has been sent to The Rustler' Rustler/thank-you.html
+          for page in Rustler/*.html; do grep -Fq 'reader-actions' "$page"; done
           grep -Fq 'mayor-tarnowski-v2.jpg' Rustler/index.html
           grep -Fq 'Russell Township file photo' Rustler/index.html
           ! grep -Fq 'township-logo-v2.png' Rustler/index.html
@@ -92,6 +97,8 @@ jobs:
           test -s Rustler/assets/terry-fox.jpg
           test -s Rustler/assets/eorn-logo.png
           test -s Rustler/sitemap.xml
+          grep -Fq 'community.html' Rustler/sitemap.xml
+          grep -Fq 'advertise.html' Rustler/sitemap.xml
       - name: Upload Rustler site
         env:
           NEOCITIES_RUSTLER_API_KEY: ${{ secrets.NEOCITIES_RUSTLER_API_KEY }}
@@ -120,6 +127,9 @@ jobs:
           maple="$(mktemp)"
           terry="$(mktemp)"
           eorn="$(mktemp)"
+          community="$(mktemp)"
+          advertise="$(mktemp)"
+          thanks="$(mktemp)"
           for attempt in 1 2 3 4 5 6; do
             code="$(curl -L -sS -o "$tmp" -w '%{http_code}' "https://therustler.neocities.org/?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             rcode="$(curl -L -sS -o "$residence" -w '%{http_code}' "https://therustler.neocities.org/prescott-russell-residence-delay-nurse-call-september-2026.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
@@ -131,14 +141,17 @@ jobs:
             mcode="$(curl -L -sS -o "$maple" -w '%{http_code}' "https://therustler.neocities.org/assets/autumn-maple-leaf-water.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             tcode="$(curl -L -sS -o "$terry" -w '%{http_code}' "https://therustler.neocities.org/assets/terry-fox.jpg?verify=${GITHUB_SHA::8}-${attempt}" || true)"
             ecode="$(curl -L -sS -o "$eorn" -w '%{http_code}' "https://therustler.neocities.org/assets/eorn-logo.png?verify=${GITHUB_SHA::8}-${attempt}" || true)"
-            if [[ "$code" == "200" ]] && [[ "$rcode" == "200" ]] && [[ "$wcode" == "200" ]] && [[ "$ccode" == "200" ]] && [[ "$hcode" == "200" ]] && [[ "$pcode" == "200" ]] && [[ "$acode" == "200" ]] && [[ "$mcode" == "200" ]] && [[ "$tcode" == "200" ]] && [[ "$ecode" == "200" ]] && grep -Fq 'Tarnowski presses UCPR over another delay at new Residence' "$tmp" && grep -Fq 'Panthers split first two exhibition games' "$tmp" && grep -Fq 'Catch the Ace jackpot estimated at $315,000' "$tmp" && grep -Fq 'Bouquet workshop at Russell Legion today' "$tmp" && grep -Fq 'Rep B rust-off sessions continue Monday' "$tmp" && grep -Fq 'Busy week ahead at Town Hall' "$tmp" && grep -Fq 'weather-strip' "$tmp" && grep -Fq 'High / Low' "$tmp" && ! grep -Fq 'Nick Gallagher' "$tmp" && grep -Fq 'Treasurer Sébastien Dagenais' "$tmp" && grep -Fq 'infrastructure executive Jonathan Bourgon' "$tmp" && grep -Fq 'site.css?v=7' "$tmp" && grep -Fq 'assets/autumn-maple-leaf-water.jpg' "$tmp" && grep -Fq 'assets/terry-fox.jpg' "$tmp" && grep -Fq 'assets/eorn-logo.png' "$tmp" && ! grep -Fq 'assets/autumn-photo-expo.jpg' "$tmp" && grep -Fq 'Russell Township file photo' "$tmp" && ! grep -Fq 'township-logo-v2.png' "$tmp" && grep -Fq 'Tarnowski presses UCPR over another delay at new Residence' "$residence" && grep -Fq 'nurse-call system' "$residence" && grep -Fq 'assets/mayor-tarnowski-v2.jpg' "$residence" && grep -Fq 'Jonathan Bourgon' "$water" && grep -Fq 'assets/town-hall.jpg' "$water" && ! grep -Fq 'township-logo-v2.png' "$water" && grep -Fq 'assets/autumn-maple-leaf-water.jpg' "$autumn" && ! grep -Fq 'assets/autumn-photo-expo.jpg' "$autumn" && grep -Fq 'Mobile story-image compaction v5' "$css" && grep -Fq 'Rustler visual source corrections v6' "$css" && [[ -s "$hall" ]] && [[ -s "$mayor" ]] && ! cmp -s "$hall" "$mayor" && [[ -s "$maple" ]] && [[ -s "$terry" ]] && [[ -s "$eorn" ]]; then
-              echo 'Verified Sept. 6 Rustler edition, Residence story, TWP briefs, current weather structure and mayor portrait live'
-              rm -f "$tmp" "$residence" "$water" "$css" "$hall" "$mayor" "$autumn" "$maple" "$terry" "$eorn"
+            ucode="$(curl -L -sS -o "$community" -w '%{http_code}' "https://therustler.neocities.org/community.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            dcode="$(curl -L -sS -o "$advertise" -w '%{http_code}' "https://therustler.neocities.org/advertise.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            ycode="$(curl -L -sS -o "$thanks" -w '%{http_code}' "https://therustler.neocities.org/thank-you.html?verify=${GITHUB_SHA::8}-${attempt}" || true)"
+            if [[ "$code" == "200" ]] && [[ "$rcode" == "200" ]] && [[ "$wcode" == "200" ]] && [[ "$ccode" == "200" ]] && [[ "$hcode" == "200" ]] && [[ "$pcode" == "200" ]] && [[ "$acode" == "200" ]] && [[ "$mcode" == "200" ]] && [[ "$tcode" == "200" ]] && [[ "$ecode" == "200" ]] && [[ "$ucode" == "200" ]] && [[ "$dcode" == "200" ]] && [[ "$ycode" == "200" ]] && grep -Fq 'Tarnowski presses UCPR over another delay at new Residence' "$tmp" && grep -Fq 'Panthers split first two exhibition games' "$tmp" && grep -Fq 'Catch the Ace jackpot estimated at $315,000' "$tmp" && grep -Fq 'Bouquet workshop at Russell Legion today' "$tmp" && grep -Fq 'Rep B rust-off sessions continue Monday' "$tmp" && grep -Fq 'Busy week ahead at Town Hall' "$tmp" && grep -Fq 'reader-actions' "$tmp" && ! grep -Fq 'weather-strip' "$tmp" && grep -Fq 'High / Low' "$tmp" && ! grep -Fq 'Nick Gallagher' "$tmp" && grep -Fq 'Treasurer Sébastien Dagenais' "$tmp" && grep -Fq 'infrastructure executive Jonathan Bourgon' "$tmp" && grep -Fq 'site.css?v=8' "$tmp" && grep -Fq 'assets/autumn-maple-leaf-water.jpg' "$tmp" && grep -Fq 'assets/terry-fox.jpg' "$tmp" && grep -Fq 'assets/eorn-logo.png' "$tmp" && ! grep -Fq 'assets/autumn-photo-expo.jpg' "$tmp" && grep -Fq 'Russell Township file photo' "$tmp" && ! grep -Fq 'township-logo-v2.png' "$tmp" && grep -Fq 'reader-actions' "$residence" && grep -Fq 'Tarnowski presses UCPR over another delay at new Residence' "$residence" && grep -Fq 'nurse-call system' "$residence" && grep -Fq 'assets/mayor-tarnowski-v2.jpg' "$residence" && grep -Fq 'Jonathan Bourgon' "$water" && grep -Fq 'assets/town-hall.jpg' "$water" && ! grep -Fq 'township-logo-v2.png' "$water" && grep -Fq 'assets/autumn-maple-leaf-water.jpg' "$autumn" && ! grep -Fq 'assets/autumn-photo-expo.jpg' "$autumn" && grep -Fq 'formsubmit.co/dadabuddanews@gmail.com' "$community" && grep -Fq 'Community news and events' "$community" && grep -Fq 'formsubmit.co/dadabuddanews@gmail.com' "$advertise" && grep -Fq 'Advertising inquiry' "$advertise" && grep -Fq 'Your submission has been sent to The Rustler' "$thanks" && grep -Fq 'Mobile story-image compaction v5' "$css" && grep -Fq 'Rustler visual source corrections v6' "$css" && grep -Fq 'Reader submissions and advertising actions v8' "$css" && [[ -s "$hall" ]] && [[ -s "$mayor" ]] && ! cmp -s "$hall" "$mayor" && [[ -s "$maple" ]] && [[ -s "$terry" ]] && [[ -s "$eorn" ]]; then
+              echo 'Verified Sept. 6 Rustler edition, story-page action buttons, community and advertising forms, and current visuals live'
+              rm -f "$tmp" "$residence" "$water" "$css" "$hall" "$mayor" "$autumn" "$maple" "$terry" "$eorn" "$community" "$advertise" "$thanks"
               exit 0
             fi
             sleep 4
           done
           echo 'Homepage verification body:'
           cat "$tmp" || true
-          rm -f "$tmp" "$residence" "$water" "$css" "$hall" "$mayor" "$autumn" "$maple" "$terry" "$eorn"
+          rm -f "$tmp" "$residence" "$water" "$css" "$hall" "$mayor" "$autumn" "$maple" "$terry" "$eorn" "$community" "$advertise" "$thanks"
           exit 1
