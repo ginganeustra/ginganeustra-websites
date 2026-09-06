@@ -87,6 +87,21 @@ patch("index.html", [
      "<figure><a href=\"embrun-water-tower-delay-september-2026.html\"><img src=\"assets/town-hall.jpg\" alt=\"Russell Township Town Hall\"></a><figcaption class=\"photo-credit\">Russell Township file photo</figcaption></figure>"),
 ])
 
+# Credit the mayor portrait to its actual public source rather than to the Township.
+for name in ["index.html", "prescott-russell-residence-delay-nurse-call-september-2026.html", "russell-election-tarnowski-acclaimed-council-candidates-2026.html"]:
+    p = ROOT / name
+    text = p.read_text(encoding="utf-8")
+    text = text.replace(
+        'assets/mayor-tarnowski-v2.jpg" alt="Russell Township Mayor Mike Tarnowski"></a><figcaption class="photo-credit">Russell Township</figcaption>',
+        'assets/mayor-tarnowski-v2.jpg" alt="Russell Township Mayor Mike Tarnowski"></a><figcaption class="photo-credit">Mike Tarnowski campaign website / file photo</figcaption>'
+    )
+    text = text.replace(
+        'assets/mayor-tarnowski-v2.jpg" alt="Russell Township Mayor Mike Tarnowski"><figcaption class="photo-credit">Russell Township</figcaption>',
+        'assets/mayor-tarnowski-v2.jpg" alt="Russell Township Mayor Mike Tarnowski"><figcaption class="photo-credit">Mike Tarnowski campaign website / file photo</figcaption>'
+    )
+    p.write_text(text, encoding="utf-8")
+    print(f"checked mayor photo credit: {name}")
+
 # Cache-bust the corrected mobile stylesheet on every story page.
 for page in ROOT.glob("*.html"):
     text = page.read_text(encoding="utf-8")
