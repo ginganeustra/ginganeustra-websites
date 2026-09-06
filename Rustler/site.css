@@ -9,14 +9,3 @@
 .brief-tile img[src$="terry-fox.jpg"]{object-position:50% 24%}
 .brief-tile img[src$="eorn-logo.png"]{aspect-ratio:16/7;object-fit:contain;padding:18px 20px;background:#f3efe5}
 @media(max-width:570px){.brief-tile img[src$="eorn-logo.png"]{aspect-ratio:16/6;padding:15px 18px}}
-/* Election 2026 card replacement */
-#region .photo-grid>.photo-card:nth-child(3) figure>a[href="russell-election-tarnowski-acclaimed-council-candidates-2026.html"]{display:block;background:url("assets/election-2026-russell.webp") center/cover no-repeat}
-#region .photo-grid>.photo-card:nth-child(3) figure>a[href="russell-election-tarnowski-acclaimed-council-candidates-2026.html"]>img{opacity:0;aspect-ratio:16/9}
-#region .photo-grid>.photo-card:nth-child(3) .photo-credit{font-size:0}
-#region .photo-grid>.photo-card:nth-child(3) .photo-credit::after{content:"Election 2026 graphic";font-size:.62rem;line-height:1.25;color:#81776b}
-/* Election 2026 fallback graphic — avoids dependence on the broken WebP asset */
-#region .photo-grid>.photo-card:nth-child(3) figure>a[href="russell-election-tarnowski-acclaimed-council-candidates-2026.html"]{position:relative;overflow:hidden;aspect-ratio:16/9;background:linear-gradient(105deg,#f7f2e8 0 57%,#efe7d7 57% 100%);border:1px solid #d7cbb9;text-decoration:none}
-#region .photo-grid>.photo-card:nth-child(3) figure>a[href="russell-election-tarnowski-acclaimed-council-candidates-2026.html"]>img{opacity:0;width:100%;height:100%;aspect-ratio:16/9}
-#region .photo-grid>.photo-card:nth-child(3) figure>a[href="russell-election-tarnowski-acclaimed-council-candidates-2026.html"]::before{content:"ELECTION\A 2026";white-space:pre;position:absolute;z-index:2;left:6%;top:19%;font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:clamp(2.2rem,5.2vw,4.5rem);line-height:.88;letter-spacing:-.035em;color:#24170f;text-shadow:0 1px 0 #fff}
-#region .photo-grid>.photo-card:nth-child(3) figure>a[href="russell-election-tarnowski-acclaimed-council-candidates-2026.html"]::after{content:"";position:absolute;z-index:1;right:4%;top:11%;width:34%;height:78%;border:1px solid #aa8a4e;box-shadow:0 5px 16px rgba(36,23,15,.18);transform:skewY(-3deg);background:url("assets/township-logo-v2.png") center/78% auto no-repeat,linear-gradient(to bottom,#193d61 0 18%,#fffdf8 18% 77%,#b78645 77% 84%,#193d61 84% 100%)}
-@media(max-width:570px){#region .photo-grid>.photo-card:nth-child(3) figure>a[href="russell-election-tarnowski-acclaimed-council-candidates-2026.html"]::before{font-size:2.55rem;left:5%;top:21%}#region .photo-grid>.photo-card:nth-child(3) figure>a[href="russell-election-tarnowski-acclaimed-council-candidates-2026.html"]::after{right:3%;width:36%;height:74%;top:13%}}
