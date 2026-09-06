@@ -88,7 +88,7 @@ def current_lead_block(text: str) -> str:
 def demote_lead(block: str) -> str:
     kicker_m = re.search(r'<div class="k">(?:Lead · )?(.*?)</div>', block, re.S)
     headline_m = re.search(r"<h1>(.*?)</h1>", block, re.S)
-    deck_m = re.search(r"<h1>.*?</h1>\s*<p>(.*?)</p>", block, re.S)
+    deck_m = re.search(r"<h1>.*?</h1>(?:\s*<img\b[^>]*>)*\s*<p>(.*?)</p>", block, re.S)
     link_m = re.search(r'<a class="read" href="([^"]+)">(.*?)</a>', block, re.S)
     meta_m = re.search(r'<p class="meta">(.*?)</p>', block, re.S)
     img_m = re.search(r'<img\b[^>]*src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>', block, re.S)
@@ -145,6 +145,7 @@ def main() -> int:
 
     image_rel = str(manifest.get("image") or "")
     image_html = ""
+    image_caption = ""
     image_width = int(manifest.get("image_width_percent", 100))
     image_max = int(manifest.get("image_max_width", 900))
     if not (20 <= image_width <= 100):
@@ -166,6 +167,9 @@ def main() -> int:
         inspect_image(dest)
         alt = html.escape(str(required(manifest, "image_alt")), quote=True)
         image_html = f'<img class="lead-art" src="{html.escape(image_rel, quote=True)}" alt="{alt}">'
+        caption = str(manifest.get("image_caption") or "").strip()
+        if caption:
+            image_caption = f'<p class="image-caption">{html.escape(caption)}</p>'
     elif manifest.get("lead"):
         die("lead stories require direct JPG/PNG art in the canonical publisher")
 
@@ -190,6 +194,7 @@ def main() -> int:
         "IMAGE_MAX_WIDTH": str(image_max),
         "PUBLISHED_BANNER": html.escape(published_banner),
         "IMAGE_HTML": image_html,
+        "IMAGE_CAPTION": image_caption,
         "KICKER": html.escape(kicker),
         "HEADLINE": html.escape(headline),
         "DECK": html.escape(deck),
