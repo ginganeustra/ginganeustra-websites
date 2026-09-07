@@ -102,6 +102,21 @@ for name in ["index.html", "prescott-russell-residence-delay-nurse-call-septembe
     p.write_text(text, encoding="utf-8")
     print(f"checked mayor photo credit: {name}")
 
+# Keep the reader-interaction and What's On links present on every published page.
+for page in ROOT.glob("*.html"):
+    text = page.read_text(encoding="utf-8")
+    if 'href="ask.html"' not in text:
+        text = text.replace(
+            '<span class="reader-actions-label">Have something for The Rustler?</span>',
+            '<span class="reader-actions-label">Have something for The Rustler?</span><a class="reader-action" href="ask.html">Ask The Rustler</a>',
+            1,
+        )
+    if 'href="whats-on.html"' not in text:
+        text = text.replace('<a href="#in-the-twp">In the TWP</a>', '<a href="whats-on.html">What’s On</a><a href="#in-the-twp">In the TWP</a>', 1)
+        text = text.replace('<a href="index.html#in-the-twp">In the TWP</a>', '<a href="whats-on.html">What’s On</a><a href="index.html#in-the-twp">In the TWP</a>', 1)
+    page.write_text(text, encoding="utf-8")
+print("checked Ask The Rustler and What's On navigation across Rustler pages")
+
 # Cache-bust the corrected mobile stylesheet on every story page.
 for page in ROOT.glob("*.html"):
     text = page.read_text(encoding="utf-8")
