@@ -13,6 +13,7 @@
   <meta property="og:site_name" content="The Rustler">
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="site.css?v=8">
+  <script defer src="form-submit.js?v=1"></script>
 </head>
 <body>
   <div class="reader-actions"><div class="wrap"><span class="reader-actions-label">Have something for The Rustler?</span><a class="reader-action" href="ask.html">Ask The Rustler</a><a class="reader-action" href="community.html">Send community news &amp; events</a><a class="reader-action advertise-action" href="advertise.html" aria-current="page">Advertise with us</a></div></div>
@@ -24,9 +25,10 @@
     <header class="article-head"><div class="kicker">Local business</div><h1>Advertise with us</h1><p class="deck">Tell us what you would like to promote. We will get back to you about advertising, event promotion and other ways to reach Rustler readers.</p></header>
     <article class="article-body">
       <p class="form-intro">The Rustler is built for Russell Township: Russell, Embrun, Marionville and Limoges. Send us a little about your business, organization or campaign, and we will reply by email.</p>
-      <form class="submission-form" action="https://formsubmit.co/dadabuddanews@gmail.com" method="POST">
+      <form class="submission-form" action="https://formsubmit.co/dadabuddanews@gmail.com" method="POST" data-rustler-form data-source-url="https://therustler.neocities.org/advertise.html" data-success-url="thank-you.html">
         <input type="hidden" name="_subject" value="The Rustler — advertising inquiry">
         <input type="hidden" name="_next" value="https://therustler.neocities.org/thank-you.html">
+        <input type="hidden" name="_url" value="https://therustler.neocities.org/advertise.html">
         <input type="hidden" name="_template" value="table">
         <input type="hidden" name="Submission type" value="Advertising inquiry">
         <input type="text" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true" style="display:none">
@@ -42,6 +44,7 @@
         </div>
         <div class="form-check"><input id="advertise-consent" name="Acknowledgement" type="checkbox" value="I understand that The Rustler may contact me about this advertising inquiry." required><label for="advertise-consent">I understand that The Rustler may contact me about this advertising inquiry.</label></div>
         <button class="form-submit" type="submit">Send advertising inquiry</button>
+        <p class="form-help" data-form-status role="status" aria-live="polite"></p>
         <p class="form-privacy">Your contact information is used to reply to your inquiry. We will not publish it without your permission.</p>
       </form>
     </article>
