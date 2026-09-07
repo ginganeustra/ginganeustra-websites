@@ -70,6 +70,25 @@ jobs:
           grep -Fq 'mayor-tarnowski-v2.jpg' Rustler/index.html
           grep -Fq 'Russell Township file photo' Rustler/index.html
           ! grep -Fq 'township-logo-v2.png' Rustler/index.html
+          python3 - <<'PY'
+          from pathlib import Path
+
+          home = Path("Rustler/index.html").read_text(encoding="utf-8")
+
+          def section(section_id: str) -> str:
+              marker = f'<section id="{section_id}">'
+              return home.split(marker, 1)[1].split("</section>", 1)[0]
+
+          township = section("township")
+          region = section("region")
+          election = "russell-election-tarnowski-acclaimed-council-candidates-2026.html"
+          west_nile = "west-nile-human-case-eastern-ontario-september-2026.html"
+          tariff = "prescott-russell-tariff-relief-economic-development-2026.html"
+
+          assert election in township and election not in region
+          assert '<article class="photo-card feature-card"><figure><a href="' + election in township
+          assert west_nile in region and region.index(west_nile) < region.index(tariff)
+          PY
           grep -Fq 'Jonathan Bourgon' Rustler/notre-dame-road-closure-council-answers-september-2026.html
           grep -Fq 'Sébastien Dagenais' Rustler/recreation-complex-70-million-debt-financing-september-2026.html
           grep -Fq 'Jonathan Bourgon' Rustler/embrun-water-tower-delay-september-2026.html
