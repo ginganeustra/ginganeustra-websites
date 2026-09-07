@@ -13,6 +13,7 @@
   <meta property="og:site_name" content="The Rustler">
   <meta name="twitter:card" content="summary">
   <link rel="stylesheet" href="site.css?v=8">
+  <script defer src="form-submit.js?v=1"></script>
 </head>
 <body>
   <div class="reader-actions"><div class="wrap"><span class="reader-actions-label">Have something for The Rustler?</span><a class="reader-action" href="ask.html">Ask The Rustler</a><a class="reader-action" href="community.html" aria-current="page">Send community news &amp; events</a><a class="reader-action advertise-action" href="advertise.html">Advertise with us</a></div></div>
@@ -24,9 +25,10 @@
     <header class="article-head"><div class="kicker">Community desk</div><h1>Send community news and events</h1><p class="deck">Tell us what is happening in Russell Township. We welcome meeting notices, fundraisers, sports, workshops, public events, community-group plans and local news tips.</p></header>
     <article class="article-body">
       <p class="form-intro">Give us the details you would like considered for publication. The clearer the information, the easier it is for us to follow up and share it with readers.</p>
-      <form class="submission-form" action="https://formsubmit.co/dadabuddanews@gmail.com" method="POST">
+      <form class="submission-form" action="https://formsubmit.co/dadabuddanews@gmail.com" method="POST" data-rustler-form data-source-url="https://therustler.neocities.org/community.html" data-success-url="thank-you.html">
         <input type="hidden" name="_subject" value="The Rustler — community news and events submission">
         <input type="hidden" name="_next" value="https://therustler.neocities.org/thank-you.html">
+        <input type="hidden" name="_url" value="https://therustler.neocities.org/community.html">
         <input type="hidden" name="_template" value="table">
         <input type="hidden" name="Submission type" value="Community news and events">
         <input type="text" name="_honey" tabindex="-1" autocomplete="off" aria-hidden="true" style="display:none">
@@ -43,6 +45,7 @@
         </div>
         <div class="form-check"><input id="community-consent" name="Acknowledgement" type="checkbox" value="I understand that submitting this form does not guarantee publication." required><label for="community-consent">I understand that submitting this form does not guarantee publication, and that The Rustler may contact me about the information provided.</label></div>
         <button class="form-submit" type="submit">Send to The Rustler</button>
+        <p class="form-help" data-form-status role="status" aria-live="polite"></p>
         <p class="form-privacy">Do not send confidential, urgent or emergency information through this form. The Rustler will not publish your email address or phone number without your permission.</p>
       </form>
     </article>
